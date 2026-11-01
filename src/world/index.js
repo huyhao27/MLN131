@@ -398,6 +398,8 @@ export function createDiorama(canvas, opts = {}) {
     canvas.style.cursor = id ? 'pointer' : '';
     if (id === hovered) return;
     hovered = id;
+    // The map highlights what the pointer is over by itself; the UI may also call hoverRegion.
+    layer.hover = id;
     boundBus?.emit('world:hover', { region: id });
   }
 
