@@ -16,9 +16,9 @@ const METRICS = ['PROD', 'LIFE', 'TRUST', 'LAW', 'EQUITY', 'COHESION'];
 const DEFAULTS = { PROD: 52, LIFE: 48, TRUST: 54, LAW: 51, EQUITY: 45, COHESION: 57 };
 const GLOW_CH = { PROD: 1, LIFE: 2, TRUST: 3, COHESION: 4 };
 const PULSES = {
-  good: { color: [1.0, 0.8, 0.42], desat: 0, shake: 0 },
-  bad: { color: [-0.12, -0.1, -0.02], desat: 0.45, shake: 0.35 },
-  neutral: { color: [0.55, 0.55, 0.6], desat: 0, shake: 0 },
+  good: { color: [1.0, 0.78, 0.38], desat: 0, dark: 0, shake: 0 },
+  bad: { color: [0.12, 0.16, 0.3], desat: 0.5, dark: 1, shake: 0.35 },
+  neutral: { color: [0.55, 0.55, 0.58], desat: 0, dark: 0, shake: 0 },
 };
 
 export const SITE_IDS = Object.keys(SITES);
@@ -90,7 +90,7 @@ export function createDiorama(canvas, opts = {}) {
   });
   for (const e of EXTRA_SMOKE) smoke.addEmitter(new THREE.Vector3(e.x, e.y, e.z), { rate: 2.5, size: 1.8, getStrength: () => clamp((shown.PROD - 30) / 50, 0, 1) });
   // Dam spray: white mist at the foot of the spillway.
-  smoke.addEmitter(new THREE.Vector3(-80, 0.6, -45.5), { rate: 6, size: 2.2, rise: 0.8, shade: 1, getStrength: () => 0.6 });
+  smoke.addEmitter(new THREE.Vector3(-80, 0.4, -45.2), { rate: 4, size: 1.3, rise: 0.6, shade: 1, getStrength: () => 0.6 });
 
   // ---- movers ----
   const rng = makeRng('movers');
@@ -265,6 +265,7 @@ export function createDiorama(canvas, opts = {}) {
     const env = pk * pk * (pulseState.t < 0.12 ? pulseState.t / 0.12 : 1);
     post.uniforms.uPulse.value.set(P.color[0], P.color[1], P.color[2], env);
     post.uniforms.uPulseR.value = pulseState.t * 0.55;
+    post.uniforms.uDark.value = P.dark;
     post.uniforms.uDesat.value = P.desat * env + clamp((40 - shown.COHESION) / 80, 0, 0.25);
     post.uniforms.uWarmth.value = warmth;
     post.uniforms.uFocusUv.value.set((rig.cur.fx + 1) / 2, (rig.cur.fy + 1) / 2);

@@ -89,7 +89,7 @@ export const SITES = {
   ringroad: { x: -40, z: 2, d: 88 },
   hospital: { x: 0, z: 4, d: 62 },
   coalition: { x: -14, z: 44, d: 72 },
-  valley: { x: -84, z: -44, d: 96 },
+  valley: { x: -84, z: -42, d: 100, fy: 0.0 },
   temple: { x: -72, z: 33, d: 60 },
   housing: { x: 36, z: 28, d: 78 },
   port: { x: 102, z: 56, d: 80 },
@@ -303,6 +303,11 @@ export function buildProps() {
   add('containers', 101, 49, { show: above('PROD', 40) });
   add('containers', 110, 51, { show: above('PROD', 55) });
   add('containers', 96, 58, { show: above('PROD', 65) });
+  add('containers', 89, 59, { show: above('PROD', 35) });
+  add('containers', 110, 59, { show: above('PROD', 45) });
+  add('containers', 117, 56, { show: above('PROD', 75) });
+  add('truck', 103, 61, { show: above('PROD', 50) });
+  for (let i = 0; i < 4; i++) add('lamp', 88 + i * 9, 62.5, { show: above('LAW', 45 + i * 5) });
   add('gantry', 98, 64);
   add('gantry', 112, 64, { show: above('PROD', 50) });
   add('ship', 108, 74);

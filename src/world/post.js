@@ -16,6 +16,7 @@ uniform float uWarmth;
 uniform vec4 uPulse;     // rgb, strength
 uniform float uPulseR;   // ring radius
 uniform float uDesat;
+uniform float uDark;
 uniform vec2 uFocusUv;
 uniform float uBoil;
 varying vec2 vUv;
@@ -56,7 +57,8 @@ void main() {
   float pr = length((vUv - uFocusUv) * a);
   float glow = smoothstep(0.9, 0.0, pr) * 0.7 + 0.3;
   float ring = exp(-pow((pr - uPulseR) * 9.0, 2.0));
-  c += uPulse.rgb * uPulse.a * (glow * 0.35 + ring * 0.35);
+  c *= 1.0 - uDark * uPulse.a * (0.28 + ring * 0.12);
+  c += uPulse.rgb * uPulse.a * (glow * 0.4 + ring * 0.45);
   c = mix(c, vec3(lum(c)) * vec3(0.86, 0.88, 0.95), uDesat);
   // Vignette.
   vec2 q = vUv * 2.0 - 1.0;
@@ -83,6 +85,7 @@ export class PaintPass {
       uPulse: { value: new THREE.Vector4(0, 0, 0, 0) },
       uPulseR: { value: 0 },
       uDesat: { value: 0 },
+      uDark: { value: 0 },
       uFocusUv: { value: new THREE.Vector2(0.36, 0.58) },
       uBoil: { value: 1 },
     };
