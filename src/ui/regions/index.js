@@ -27,6 +27,7 @@ export function createRegionUI(rootEl, {
     hover: null,
     confirm: false,
     newsOpen: false,
+    panelMin: false, // drawer collapsed to its header
     acting: false,
     openedAt: 0,
     choseAt: 0,
@@ -50,6 +51,7 @@ export function createRegionUI(rootEl, {
   const panelEl = ui.querySelector('.rg-panel');
   const overlayEl = ui.querySelector('.rg-overlay');
   const toasts = ui.querySelector('.rg-toasts');
+  const keyhintEl = ui.querySelector('.rg-keyhint');
 
   const labels = createLabels(ui.querySelector('.rg-labels'), {
     onHover: (id) => setHover(id, true),
@@ -81,15 +83,31 @@ export function createRegionUI(rootEl, {
     }
   }
 
+  // UI boxes the labels must keep clear of (CSS px in the .rg-ui frame). Read only on
+  // render / resize / toggles, never per frame.
+  function boxOf(el) {
+    if (!el || el.hidden || !el.isConnected) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    const o = ui.getBoundingClientRect();
+    return { x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height };
+  }
   function updateSafe() {
-    const topH = topEl.hidden ? 0 : topEl.offsetHeight;
-    ui.style.setProperty('--top-h', `${topH}px`);
-    const panelOpen = !panelEl.hidden;
-    labels.setSafe({
-      top: topH ? topEl.offsetTop + topH : 0,
-      bottom: 0,
-      right: panelOpen ? panelEl.offsetLeft - 4 : Infinity,
-    });
+    const hudBox = boxOf(topEl.querySelector('.rg-hud'));
+    const nextBox = boxOf(topEl.querySelector('.rg-next'));
+    const topBottom = Math.max(hudBox ? hudBox.y + hudBox.h : 0, nextBox ? nextBox.y + nextBox.h : 0);
+    ui.style.setProperty('--top-h', `${Math.round(topBottom || 0)}px`);
+    const rects = [hudBox, nextBox, boxOf(topEl.querySelector('.rg-confirm')), boxOf(newsEl.firstElementChild ? newsEl : null), boxOf(keyhintEl)];
+    const hide = [];
+    if (!panelEl.hidden) {
+      // Offsets, not the bounding box: the panel may be mid slide-in animation.
+      const pb = { x: panelEl.offsetLeft, y: panelEl.offsetTop, w: panelEl.offsetWidth, h: panelEl.offsetHeight };
+      rects.push(pb);
+      if (!st.panelMin) hide.push(pb);
+      ui.style.setProperty('--panel-px', `${pb.w}px`);
+    }
+    ui.classList.toggle('is-panel-min', !panelEl.hidden && st.panelMin);
+    labels.setSafe({ top: 0, rects: rects.filter(Boolean), hide });
   }
 
   // ---------- rendering ----------
@@ -97,10 +115,14 @@ export function createRegionUI(rootEl, {
     if (!isPeriod()) { topEl.hidden = true; topEl.innerHTML = ''; return; }
     topEl.hidden = false;
     topEl.innerHTML = renderTop(st.view, { confirmOpen: st.confirm, testMode });
+    ui.classList.toggle('has-confirm', st.confirm);
+    updateSafe();
   }
 
   function renderNewsStrip() {
     newsEl.innerHTML = isPeriod() ? renderNews(st.view, { expanded: st.newsOpen }) : '';
+    newsEl.classList.toggle('is-open', st.newsOpen);
+    updateSafe();
   }
 
   function renderPanel({ animate = false, keepScroll = true } = {}) {
@@ -121,6 +143,8 @@ export function createRegionUI(rootEl, {
     panelEl.dataset.key = key;
     panelEl.setAttribute('aria-label', p ? `Vấn đề: ${p.title}` : `Vùng ${regionMeta(st.view, st.selected).name}`);
     panelEl.hidden = false;
+    panelEl.classList.toggle('is-min', st.panelMin);
+    panelEl.querySelector('[data-action="panel-min"]')?.setAttribute('aria-expanded', String(!st.panelMin));
     ui.classList.add('has-panel');
     const sc = panelEl.querySelector('[data-scroll]');
     if (sc) sc.scrollTop = scroll;
@@ -143,6 +167,7 @@ export function createRegionUI(rootEl, {
     st.view = view;
     st.acting = false;
     ui.dataset.phase = view.phase;
+    ui.classList.toggle('is-first', view.phase === 'period' && view.period <= 1);
     const phaseChanged = !prev || prev.phase !== view.phase;
     const periodChanged = !prev || prev.period !== view.period;
 
@@ -194,6 +219,8 @@ export function createRegionUI(rootEl, {
     st.selected = id ?? null;
     st.problem = id ? problem : null;
     st.confirm = false;
+    // A new target re-opens a collapsed drawer; closing it resets.
+    if (!id || st.problem !== prevProb || id !== prevSel) st.panelMin = false;
     if (st.problem && st.problem !== prevProb) st.openedAt = performance.now();
     labels.setSelected(st.selected);
     renderTopBar();
@@ -210,6 +237,7 @@ export function createRegionUI(rootEl, {
 
   function back() {
     if (st.confirm) { st.confirm = false; renderTopBar(); return true; }
+    if (st.newsOpen) { st.newsOpen = false; renderNewsStrip(); return true; }
     if (st.problem) { select(st.selected); return true; }
     if (st.selected) { select(null); return true; }
     return false;
@@ -390,6 +418,7 @@ export function createRegionUI(rootEl, {
     else if (a === 'close') select(null);
     else if (a === 'back') select(st.selected);
     else if (a === 'news-toggle') { st.newsOpen = !st.newsOpen; renderNewsStrip(); }
+    else if (a === 'panel-min') { st.panelMin = !st.panelMin; renderPanel(); }
     else if (a === 'start') act({ type: 'start' });
     else if (a === 'restart') act({ type: 'restart' });
   });
@@ -408,6 +437,17 @@ export function createRegionUI(rootEl, {
   });
 
   window.addEventListener('resize', () => updateSafe());
+  // The drawer sizes to its content (details open/close, scrolling content changes):
+  // keep the labels' keep-out rects in step with it.
+  if (typeof ResizeObserver === 'function') {
+    let queued = false;
+    const ro = new ResizeObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; updateSafe(); });
+    });
+    ro.observe(panelEl); ro.observe(newsEl); ro.observe(topEl);
+  }
 
   return {
     render,

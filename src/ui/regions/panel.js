@@ -8,6 +8,11 @@ import {
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'];
 
+// Collapse/expand the drawer to its header so the map behind it is visible.
+function minBtn() {
+  return `<button type="button" class="rg-iconbtn is-quiet is-sq rg-min" data-action="panel-min" title="Thu gọn / mở bảng" aria-label="Thu gọn hoặc mở bảng">${icon('down', 'rg-min-ic')}</button>`;
+}
+
 export function problemsOf(view, region) {
   return (region.problems ?? []).map((id) => view.problems?.find((p) => p.instanceId === id)).filter(Boolean);
 }
@@ -91,7 +96,8 @@ export function renderRegion(view, regionId) {
   return `
     <header class="rg-ph">
       <button type="button" class="rg-iconbtn" data-action="close" title="Về bản đồ (Esc)" aria-label="Về bản đồ">${icon('back')}<span>Bản đồ</span></button>
-      <span class="rg-ph-crumb rg-muted">Vùng</span>
+      <span class="rg-ph-crumb"><span class="rg-muted">Vùng</span> <b>${esc(meta.short)}</b></span>
+      ${minBtn()}
     </header>
     <div class="rg-pbody" data-scroll>
       <div class="rg-rhead">
@@ -139,7 +145,9 @@ export function renderProblem(view, p) {
   return `
     <header class="rg-ph">
       <button type="button" class="rg-iconbtn" data-action="back" title="Về vùng (Esc)" aria-label="Về vùng ${esc(meta.short)}">${icon('back')}<span>${esc(meta.short)}</span></button>
-      <button type="button" class="rg-iconbtn is-quiet" data-action="close" title="Về bản đồ" aria-label="Về bản đồ">${icon('close')}<span>Bản đồ</span></button>
+      <span class="rg-ph-crumb" title="${esc(p.title)}"><b>${esc(p.short || p.title)}</b></span>
+      ${minBtn()}
+      <button type="button" class="rg-iconbtn is-quiet is-sq" data-action="close" title="Về bản đồ" aria-label="Về bản đồ">${icon('close')}</button>
     </header>
     <div class="rg-pbody" data-scroll>
       <div class="rg-prob-top">${originBadge(p)}${p.severity ? `<span class="rg-sev is-s${esc(p.severity)}">Mức ${esc(SEVERITY_TEXT[p.severity] ?? p.severity).toLowerCase()}</span>` : ''}${stateLine(p)}</div>
