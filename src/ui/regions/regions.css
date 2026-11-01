@@ -143,7 +143,7 @@
 
 .rg-keyhint {
   position: absolute; right: var(--gap); bottom: var(--gap); z-index: 15; pointer-events: none;
-  font-size: 0.72em; color: var(--ink-2); background: rgba(248, 242, 229, 0.75);
+  font-size: 0.78em; color: var(--ink-2); background: rgba(248, 242, 229, 0.8);
   padding: 0.3em 0.6em; border-radius: 0.5em; max-width: 46%;
 }
 .rg-ui.has-panel .rg-keyhint, .rg-ui:not([data-phase="period"]) .rg-keyhint { display: none; }
@@ -153,8 +153,8 @@
 .rg-labels.is-hidden { display: none; }
 .rg-label {
   position: absolute; left: 0; top: 0; will-change: transform;
-  pointer-events: auto; cursor: pointer; font-size: 0.84em; line-height: 1.25;
-  max-width: 16.5em; min-width: 8em; padding: 0.35em 0.55em 0.4em;
+  pointer-events: auto; cursor: pointer; font-size: 0.9em; line-height: 1.25;
+  max-width: 16em; min-width: 8em; padding: 0.35em 0.55em 0.4em;
   background: var(--panel); border-radius: 0.55em; box-shadow: var(--shadow);
   border: 1px solid var(--line); border-left: 0.36em solid var(--good);
   transition: opacity 0.2s, box-shadow 0.2s;
@@ -177,7 +177,7 @@
 .rg-label-main:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 0.3em; }
 .rg-label-head { display: flex; align-items: center; gap: 0.35em; }
 .rg-key { font-size: 0.68em !important; padding: 0.1em 0.32em !important; }
-.rg-label-name { font: 700 1.12em/1.15 var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-label-name { font: 700 1.1em/1.15 var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rg-label-status { display: inline-flex; align-items: center; gap: 0.3em; font-weight: 600; white-space: nowrap; }
 .rg-label.is-stable .rg-label-status { color: var(--good); }
 .rg-label.is-opportunity .rg-label-status { color: var(--opp); }

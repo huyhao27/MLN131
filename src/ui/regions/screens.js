@@ -37,16 +37,16 @@ function miniBars(before, after) {
 }
 
 const SERIES = [
-  { key: 'output', label: 'Sản xuất', color: '#2a78d6', dash: '' },
-  { key: 'wellbeing', label: 'Đời sống', color: '#eb6834', dash: '10 6' },
-  { key: 'access', label: 'Tiếp cận dịch vụ', color: '#1baf7a', dash: '3 5' },
-  { key: 'gap', label: 'Chênh lệch giữa vùng', color: '#b07c00', dash: '14 5 3 5' },
+  { key: 'output', label: 'Sản xuất', short: 'Sản xuất', color: '#2a78d6', dash: '' },
+  { key: 'wellbeing', label: 'Đời sống', short: 'Đời sống', color: '#eb6834', dash: '10 6' },
+  { key: 'access', label: 'Tiếp cận dịch vụ', short: 'Tiếp cận', color: '#1baf7a', dash: '3 5' },
+  { key: 'gap', label: 'Chênh lệch giữa vùng', short: 'Chênh lệch', color: '#b07c00', dash: '14 5 3 5' },
 ];
 
 // Hand-written SVG line chart of national values per period (0..100, one axis).
 export function lineChart(timeline) {
   if (!timeline?.length) return '<p class="rg-muted">Chưa có số liệu theo kỳ.</p>';
-  const W = 640, H = 300, L = 44, R = 150, T = 16, B = 40;
+  const W = 640, H = 300, L = 44, R = 130, T = 16, B = 40;
   const pw = W - L - R, ph = H - T - B;
   const n = timeline.length;
   const xs = (i) => L + (n === 1 ? pw / 2 : (i / (n - 1)) * pw);
@@ -62,7 +62,7 @@ export function lineChart(timeline) {
     const dots = timeline.map((t, i) => `<circle cx="${xs(i).toFixed(1)}" cy="${ys(t.national?.[s.key] ?? 0).toFixed(1)}" r="4" fill="${s.color}" class="rg-ch-dot"><title>Kỳ ${esc(t.period)} · ${s.label}: ${Math.round(t.national?.[s.key] ?? 0)}</title></circle>`).join('');
     return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>${dots}`;
   }).join('');
-  const labels = ends.map((e) => `<text x="${L + pw + 10}" y="${(e.y + 5).toFixed(1)}" class="rg-ch-end">${e.s.label} ${e.v}</text>`).join('');
+  const labels = ends.map((e) => `<text x="${L + pw + 10}" y="${(e.y + 5).toFixed(1)}" class="rg-ch-end">${e.s.short} ${e.v}</text>`).join('');
   return `
     <figure class="rg-chart">
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Chỉ số cả nước theo kỳ">

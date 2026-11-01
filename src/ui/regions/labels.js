@@ -16,6 +16,7 @@ export function createLabels(layer, { onHover, onSelect, onOpenProblem }) {
   let selected = null;
   let hovered = null;
   let dirty = true;
+  let dims = { W: window.innerWidth, H: window.innerHeight };
 
   function ensure(id) {
     let it = items.get(id);
@@ -49,6 +50,7 @@ export function createLabels(layer, { onHover, onSelect, onOpenProblem }) {
     let when = '';
     if (working && p.chosen?.completesAt) when = `xong kỳ ${p.chosen.completesAt}`;
     else if (working) when = lowerFirst(PROBLEM_STATUS_TEXT.working);
+    else if (p.deadline != null && view?.period != null && p.deadline <= view.period) when = 'hạn chót';
     else if (p.deadlineText) when = lowerFirst(p.deadlineText);
     const short = p.short || p.title;
     const kind = working ? 'is-working' : `is-${p.origin}`;
@@ -98,6 +100,7 @@ export function createLabels(layer, { onHover, onSelect, onOpenProblem }) {
 
   // Read sizes once per content change / resize.
   function measure() {
+    dims = { W: layer.clientWidth || window.innerWidth, H: layer.clientHeight || window.innerHeight };
     for (const it of items.values()) {
       it.w = it.el.offsetWidth;
       it.h = it.el.offsetHeight;
@@ -126,8 +129,7 @@ export function createLabels(layer, { onHover, onSelect, onOpenProblem }) {
 
   function layout() {
     if (!anchors) return;
-    const W = layer.clientWidth || window.innerWidth;
-    const H = layer.clientHeight || window.innerHeight;
+    const { W, H } = dims; // cached: no layout reads per frame
     const top = safe.top + EDGE;
     const bottom = H - safe.bottom - EDGE;
     const boxes = [];
