@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diorama Hòa Minh — demo</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #e9e1cf; font: 14px/1.35 system-ui, sans-serif; color: #2b2a33; }
+      #world { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+      #panel { position: fixed; top: 12px; right: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto; background: rgba(250, 245, 232, 0.92); border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 18px rgba(40, 30, 20, 0.18); }
+      #panel h1 { font-size: 15px; margin: 0 0 6px; }
+      #panel .row { display: grid; grid-template-columns: 82px 1fr 34px; align-items: center; gap: 6px; margin: 3px 0; }
+      #panel input[type=range] { width: 100%; }
+      #panel button { margin: 2px 2px 2px 0; padding: 3px 7px; border: 1px solid #b9ad92; background: #fffaf0; border-radius: 6px; cursor: pointer; font: inherit; }
+      #panel button.on { background: #f0c34a; }
+      #panel .flags label { display: block; font-size: 12px; }
+      #panel .hint { font-size: 12px; opacity: 0.75; margin-top: 8px; }
+      #fps { position: fixed; left: 10px; bottom: 8px; font: 12px monospace; color: #2b2a33; opacity: 0.6; }
+      #panel.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="world"></canvas>
+    <div id="panel"></div>
+    <div id="fps"></div>
+    <script type="module" src="/src/world/demo.js"></script>
+  </body>
+</html>
