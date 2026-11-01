@@ -108,6 +108,15 @@ function checkView(v, ctx) {
   assert(DEBT >= 0 && DEBT <= 100, `DEBT out of range ${ctx}`);
   assert(BUDGET >= -10, `BUDGET below -10 (${BUDGET}) ${ctx}`);
   assert(typeof v.site === 'string', 'site missing');
+  assert(typeof v.randomEvents === 'boolean', `randomEvents flag missing ${ctx}`);
+  if (v.phase === 'event') assert(Number.isInteger(v.chapter), `event chapter must be a number ${ctx}`);
+  if (v.phase === 'result' || v.phase === 'randomResult') {
+    assert(typeof v.code === 'string' && /^[YRC]\d+-/.test(v.code), `result code must be the choice id ${ctx}`);
+    assert(Number.isInteger(v.academic?.chapter), `academic.chapter must be a number ${ctx}`);
+    assert(v.flagsSet.every((f) => typeof f === 'string' || (f.id && f.removed === true)), `flagsSet shape ${ctx}`);
+    assert(v.scheduled.every((x) => Number.isInteger(x.year) && typeof x.text === 'string'), `scheduled shape ${ctx}`);
+  }
+  if (v.phase === 'finalRepair') assert(v.headline && v.text, `finalRepair text ${ctx}`);
   assert(Array.isArray(v.options) && v.options.length > 0, `no options ${ctx}`);
   assert(v.options.some((o) => !o.disabled), `no enabled option ${ctx}`);
   const keys = v.options.map((o) => o.key);
@@ -157,6 +166,14 @@ function checkEnd(v, s, ctx) {
   assert(Array.isArray(v.turningPoints) && v.turningPoints.length <= 3, `turning points ${ctx}`);
   assert(Array.isArray(v.history) && v.history.length >= 1, `history ${ctx}`);
   assert(Array.isArray(v.delayed) && Array.isArray(v.stakeholders), `report fields ${ctx}`);
+  assert(METRIC_KEYS.every((k) => Number.isInteger(v.initialMetrics?.[k])), `initialMetrics ${ctx}`);
+  assert(v.turningPoints.every((x) => Number.isInteger(x.year) && x.code && x.label && x.text), `turningPoints shape ${ctx}`);
+  assert(v.delayed.every((x) => Number.isInteger(x.fromYear) && Number.isInteger(x.year) && x.text), `delayed shape ${ctx}`);
+  assert(v.stakeholders.every((x) => x.id && ['gain', 'loss', 'mixed'].includes(x.tone) && x.text), `stakeholders shape ${ctx}`);
+  assert(v.ending.secondary.every((x) => x.id && x.title), `secondary shape ${ctx}`);
+  assert(v.history.every((h) => Number.isInteger(h.year) && h.code && 'choiceId' in h && h.label && h.metricsAfter), `history shape ${ctx}`);
+  const rInHistory = v.history.filter((h) => /^R/.test(h.code)).length;
+  assert(rInHistory === s.randomLog.length, `history must include R entries ${ctx}`);
   assert(s.pending_effects.every((p) => p.due > s.year) || v.ending.id === 'E6', `pending effects left unapplied ${ctx}`);
 }
 
@@ -216,6 +233,10 @@ assert(contentErrors.length === 0, 'content validation');
   // Determinism.
   const a = play('random', 4242), b = play('random', 4242);
   assert(JSON.stringify(a.view) === JSON.stringify(b.view), 'same seed must replay identically');
+  // Random-event toggle.
+  const gt = createGame({ seed: 5, emit: false });
+  assert(gt.setRandomEvents(false) === false && gt.view().randomEvents === false, 'setRandomEvents(false)');
+  assert(gt.toggleRandomEvents() === true && gt.view().randomEvents === true, 'toggleRandomEvents()');
   // Restart.
   const g3 = createGame({ seed: 9, emit: false });
   let v = g3.view();

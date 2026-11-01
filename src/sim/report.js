@@ -21,10 +21,13 @@ export function classifyEnding(s) {
   const conds = endingConditions(s);
   if (s.repairUsed) conds.E1 = false;
   const id = PRIORITY.find((k) => conds[k]) || 'E5';
-  const secondary = PRIORITY.filter((k) => k !== id && conds[k]).map((k) => SECONDARY_NOTES[k]);
-  if (s.repairUsed) secondary.push(SECONDARY_NOTES.REPAIR);
-  if (s.flags.includes('LABOR_UNRESOLVED') || s.counters.latent_discontent >= 2) secondary.push(SECONDARY_NOTES.LABOR_UNRESOLVED);
-  if (s.resources.DEBT >= 50) secondary.push(SECONDARY_NOTES.DEBT);
+  // secondary[]: { id, title } — other ending conditions that also hold, plus notes.
+  const secondary = PRIORITY.filter((k) => k !== id && conds[k]).map((k) => ({ id: k, title: SECONDARY_NOTES[k] }));
+  if (s.repairUsed) secondary.push({ id: 'REPAIR', title: SECONDARY_NOTES.REPAIR });
+  if (s.flags.includes('LABOR_UNRESOLVED') || s.counters.latent_discontent >= 2) {
+    secondary.push({ id: 'LABOR_UNRESOLVED', title: SECONDARY_NOTES.LABOR_UNRESOLVED });
+  }
+  if (s.resources.DEBT >= 50) secondary.push({ id: 'DEBT', title: SECONDARY_NOTES.DEBT });
   return { id, secondary };
 }
 
@@ -44,18 +47,17 @@ export function buildReport(s) {
   const progress = sorted.slice(0, 2).map((c) => metricLine(c.k, c.from, c.to));
   const challenges = sorted.slice(-2).reverse().map((c) => metricLine(c.k, c.from, c.to));
 
-  const history = s.history
-    .filter((h) => h.choiceId)
-    .map((h) => ({
-      year: h.year,
-      code: h.code,
-      kind: h.kind,
-      choiceId: h.choiceId,
-      label: h.label,
-      fallback: !!h.fallback,
-      deltas: h.deltas,
-      metricsAfter: h.metricsAfter,
-    }));
+  // history[]: every Y, C and R entry (C notices have choiceId null).
+  const history = s.history.map((h) => ({
+    year: h.year,
+    code: h.code,
+    kind: h.kind,
+    choiceId: h.choiceId,
+    label: h.label,
+    fallback: !!h.fallback,
+    deltas: h.deltas,
+    metricsAfter: h.metricsAfter,
+  }));
 
   // Turning points: the three main/consequence decisions with the largest total
   // realised impact (immediate + delayed effects that actually triggered).
@@ -63,39 +65,65 @@ export function buildReport(s) {
   for (const d of s.delayedLog) if (d.triggered) delayedBySource[d.source] = (delayedBySource[d.source] || 0) + magnitude(d.deltas);
   const turningPoints = s.history
     .filter((h) => h.choiceId && (h.kind === 'main' || h.kind === 'consequence' || h.kind === 'repair'))
-    .map((h) => ({
+    .map((h) => ({ h, impact: magnitude(h.deltas) + (delayedBySource[h.choiceId] || 0) }))
+    .sort((a, b) => b.impact - a.impact)
+    .slice(0, 3)
+    .sort((a, b) => a.h.year - b.h.year)
+    .map(({ h, impact }) => ({
       year: h.year,
       code: h.code,
       choiceId: h.choiceId,
       label: h.label,
-      headline: NODES[h.code]?.headline || '',
-      impact: magnitude(h.deltas) + (delayedBySource[h.choiceId] || 0),
-      deltas: h.deltas,
-    }))
-    .sort((a, b) => b.impact - a.impact)
-    .slice(0, 3)
-    .sort((a, b) => a.year - b.year);
+      impact,
+      text: turningText(h, delayedBySource[h.choiceId] || 0),
+    }));
 
+  // delayed[]: { fromYear, year, text } — delayed effects that actually triggered, biggest first.
   const delayed = s.delayedLog
     .filter((d) => d.triggered && magnitude(d.deltas) > 0)
-    .map((d) => ({ year: d.year, from: d.from, source: d.source, code: d.code, text: d.text, deltas: d.deltas }))
-    .sort((a, b) => magnitude(b.deltas) - magnitude(a.deltas));
+    .sort((a, b) => magnitude(b.deltas) - magnitude(a.deltas))
+    .map((d) => ({ fromYear: d.from, year: d.year, source: d.source, text: `${d.text} (${deltaText(d.deltas)})`, deltas: d.deltas }));
 
   const tally = Object.fromEntries(Object.keys(STAKEHOLDERS).map((k) => [k, { gains: 0, losses: 0 }]));
   for (const h of s.history) {
     for (const w of h.winners || []) tally[w] && tally[w].gains++;
     for (const l of h.losers || []) tally[l] && tally[l].losses++;
   }
+  // stakeholders[]: { id, tone: 'gain'|'loss'|'mixed', text }
   const stakeholders = Object.entries(tally)
-    .map(([sid, t]) => ({ id: sid, label: STAKEHOLDERS[sid], gains: t.gains, losses: t.losses, net: t.gains - t.losses }))
-    .sort((a, b) => b.net - a.net || b.gains - a.gains);
+    .filter(([, t]) => t.gains + t.losses > 0)
+    .map(([sid, t]) => ({
+      id: sid,
+      tone: t.gains > t.losses ? 'gain' : t.losses > t.gains ? 'loss' : 'mixed',
+      text: `${STAKEHOLDERS[sid]}: hưởng lợi từ ${t.gains} quyết định, chịu chi phí từ ${t.losses} quyết định.`,
+      gains: t.gains,
+      losses: t.losses,
+    }))
+    .sort((a, b) => b.gains - b.losses - (a.gains - a.losses) || b.gains - a.gains);
 
   return {
     ending: { ...base, secondary, progress, challenges, whatIf: WHAT_IF },
+    initialMetrics: { ...INITIAL.metrics },
     history,
     turningPoints,
     delayed,
     stakeholders,
     timeline: s.timeline,
   };
+}
+
+function deltaText(d) {
+  return Object.entries(d)
+    .map(([k, v]) => `${METRIC_LABELS[k] || k} ${v > 0 ? '+' : ''}${v}`)
+    .join(', ');
+}
+
+function turningText(h, delayedImpact) {
+  const headline = NODES[h.code]?.headline || (h.kind === 'repair' ? 'Nút cứu vãn cuối' : '');
+  const main = Object.entries(h.deltas || {})
+    .filter(([k]) => METRIC_LABELS[k])
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 3);
+  const eff = main.length ? deltaText(Object.fromEntries(main)) : 'tác động chủ yếu qua hệ quả trễ';
+  return `Năm ${h.year} — ${headline}: ${eff}${delayedImpact ? '; còn để lại hệ quả trễ ở các năm sau' : ''}.`;
 }

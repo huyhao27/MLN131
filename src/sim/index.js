@@ -26,6 +26,7 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
       metrics: { ...s.metrics },
       resources: { ...s.resources },
       flags: [...s.flags],
+      randomEvents: s.settings.randomEvents,
       warning: warningFor(s),
       site,
       options: [],
@@ -45,6 +46,7 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
           budgetGain: s.yearInfo.budgetGain,
           applied: clone(s.yearInfo.applied),
           nextChapter: next.chapter,
+          nextChapterTitle: next.chapterTitle,
           options: CONTINUE,
         };
       }
@@ -68,6 +70,7 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
           ...base(node.site),
           code: node.id,
           chapter: node.chapter,
+          chapterTitle: node.chapterTitle,
           headline: node.headline,
           context: [...variantNotes, node.context].join(' '),
           variantNotes,
@@ -82,7 +85,7 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
 
       case 'result':
       case 'randomResult':
-        return { ...base(siteOf(s.lastResult.code)), ...clone(s.lastResult), options: CONTINUE };
+        return { ...base(siteOf(s.lastResult.nodeCode)), ...clone(s.lastResult), options: CONTINUE };
 
       case 'random':
         return {
@@ -223,6 +226,16 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
     sync() {
       publish(null, true);
       return view();
+    },
+    /** Lecturer toggle for random mini-events; returns the new value. Takes effect from the next draw. */
+    setRandomEvents(on) {
+      const prevNumbers = numbers();
+      s.settings.randomEvents = !!on;
+      publish(prevNumbers);
+      return s.settings.randomEvents;
+    },
+    toggleRandomEvents() {
+      return game.setRandomEvents(!s.settings.randomEvents);
     },
     get state() {
       return clone(s);

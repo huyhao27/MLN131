@@ -44,7 +44,8 @@ export const CONSEQUENCES = [
       },
     ],
     academic: {
-      chapter: 'Chương 2 — Giai cấp công nhân',
+      chapter: 2,
+      chapterTitle: 'Chương 2 — Giai cấp công nhân',
       topic: 'Mục tiêu chính sách và điều kiện tổ chức thực hiện',
       lesson: 'Phân biệt mục tiêu chính sách với điều kiện tổ chức thực hiện; tăng thu nhập cần đi cùng nâng năng suất.',
       debrief: 'Vì sao một chính sách vì người lao động vẫn có thể gây khó khăn cho chính họ nếu thiếu điều kiện thực hiện?',
@@ -90,7 +91,8 @@ export const CONSEQUENCES = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 — Dân chủ XHCN',
+      chapter: 4,
+      chapterTitle: 'Chương 4 — Dân chủ XHCN',
       topic: 'Cơ chế tiếp thu ý kiến trong dân chủ',
       lesson: 'Dân chủ cần cơ chế tiếp thu và phản hồi, không chỉ đủ số cuộc họp.',
       debrief: 'Sửa sai công khai làm mất uy tín hay xây dựng uy tín cho cơ quan quyết định?',
@@ -125,7 +127,8 @@ export const CONSEQUENCES = [
       },
     ],
     academic: {
-      chapter: 'Chương 5 — Cơ cấu xã hội – giai cấp',
+      chapter: 5,
+      chapterTitle: 'Chương 5 — Cơ cấu xã hội – giai cấp',
       topic: 'Lực lượng sản xuất thay đổi kéo theo biến đổi cơ cấu xã hội',
       lesson: 'Chuyển dịch lực lượng sản xuất tái cấu trúc các tầng lớp; tác động của chính sách kéo dài nhiều năm.',
       debrief: 'Nhóm lao động nào đang hình thành, nhóm nào đang thu hẹp trong khu công nghiệp?',
@@ -162,7 +165,8 @@ export const CONSEQUENCES = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 & 6 — Pháp quyền và đoàn kết dân tộc',
+      chapter: 4,
+      chapterTitle: 'Chương 4 & 6 — Pháp quyền và đoàn kết dân tộc',
       topic: 'Liên hệ pháp quyền, đoàn kết và hợp tác phát triển vùng',
       lesson: 'Niềm tin vào pháp luật là điều kiện cho hợp tác phát triển giữa nhà nước và các cộng đồng.',
       debrief: 'Vì sao một vụ án ở bệnh viện lại ảnh hưởng tới dự án thủy điện ở vùng cao?',
@@ -206,7 +210,8 @@ export const CONSEQUENCES = [
       },
     ],
     academic: {
-      chapter: 'Chương 7 — Gia đình',
+      chapter: 7,
+      chapterTitle: 'Chương 7 — Gia đình',
       topic: 'Gia đình và điều kiện kinh tế – xã hội',
       lesson: 'Vai trò của gia đình liên kết trực tiếp với điều kiện kinh tế – xã hội và hệ thống an sinh.',
       debrief: 'Chi phí chăm sóc “vô hình” trong gia đình được ai gánh?',

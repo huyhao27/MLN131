@@ -43,7 +43,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 2 — Giai cấp công nhân',
+      chapter: 2,
+      chapterTitle: 'Chương 2 — Giai cấp công nhân',
       topic: 'Đại diện và đối thoại trong quan hệ lao động',
       lesson: 'Mâu thuẫn lợi ích trong quan hệ lao động cần cơ chế đại diện và đối thoại, không chỉ mệnh lệnh.',
       debrief: 'Vì sao trì hoãn kiến nghị lao động có thể khiến xung đột lan rộng?',
@@ -86,7 +87,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 3 — Thời kỳ quá độ',
+      chapter: 3,
+      chapterTitle: 'Chương 3 — Thời kỳ quá độ',
       topic: 'Phụ thuộc thị trường và phát triển lực lượng sản xuất',
       lesson: 'Nền sản xuất phụ thuộc một thị trường dễ tổn thương; năng lực thích nghi là một phần của lực lượng sản xuất.',
       debrief: 'Hỗ trợ doanh nghiệp khi nào là đầu tư, khi nào là rủi ro đạo đức?',
@@ -132,7 +134,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 — Dân chủ XHCN',
+      chapter: 4,
+      chapterTitle: 'Chương 4 — Dân chủ XHCN',
       topic: 'Dân chủ thực chất và thủ tục hình thức',
       lesson: 'Dân chủ thực chất khác thủ tục hình thức: ý kiến phải được ghi nhận và phản hồi.',
       debrief: 'Phản ánh trái chiều là rủi ro hay là dữ liệu cho chính sách?',
@@ -181,7 +184,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 — Nhà nước pháp quyền XHCN',
+      chapter: 4,
+      chapterTitle: 'Chương 4 — Nhà nước pháp quyền XHCN',
       topic: 'Kiểm soát quyền lực, thực thi pháp luật',
       lesson: 'Kiểm soát quyền lực cần cơ chế bảo vệ người tố giác và công khai kết luận.',
       debrief: '“Ổn định” có thể trở thành lý do để né tránh trách nhiệm giải trình không?',
@@ -226,7 +230,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 6 — Vấn đề dân tộc',
+      chapter: 6,
+      chapterTitle: 'Chương 6 — Vấn đề dân tộc',
       topic: 'Công bằng phát triển giữa các vùng',
       lesson: 'Bình đẳng thực chất đòi hỏi hỗ trợ theo bất lợi thực tế, không chỉ chia đều.',
       debrief: 'Chia đều có phải là công bằng?',
@@ -275,7 +280,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 6 — Vấn đề dân tộc',
+      chapter: 6,
+      chapterTitle: 'Chương 6 — Vấn đề dân tộc',
       topic: 'Phân biệt thông tin sai với ý kiến phê bình hợp pháp',
       lesson: 'Xử lý tin giả không được đồng nhất với việc dập tắt phê bình hợp pháp.',
       debrief: 'Làm sao bác tin sai mà không làm im lặng người có kiến nghị đúng?',
@@ -318,7 +324,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 6 — Vấn đề tôn giáo',
+      chapter: 6,
+      chapterTitle: 'Chương 6 — Vấn đề tôn giáo',
       topic: 'Tự do tín ngưỡng và xử lý hành chính công bằng',
       lesson: 'Quản lý nhà nước về tín ngưỡng cần áp dụng quy định bình đẳng, không dựa trên niềm tin của số đông.',
       debrief: 'Thủ tục hành chính có thể trở thành rào cản quyền tự do tín ngưỡng như thế nào?',
@@ -360,7 +367,8 @@ export const RANDOM_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 7 — Gia đình',
+      chapter: 7,
+      chapterTitle: 'Chương 7 — Gia đình',
       topic: 'Chức năng kinh tế và tái sản xuất con người của gia đình',
       lesson: 'Gia đình thực hiện chức năng tái sản xuất con người; thiếu dịch vụ xã hội làm gánh nặng dồn vào gia đình.',
       debrief: 'Chăm sóc người thân là việc riêng hay là điều kiện của nền sản xuất?',

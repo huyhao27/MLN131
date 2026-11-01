@@ -176,8 +176,12 @@ export function applyChoice(s, node, optionId) {
   if (r.discontent) {
     s.counters.latent_discontent = Math.max(0, s.counters.latent_discontent + r.discontent);
   }
+  // flagsSet: newly set flags as ids, removed flags as { id, removed: true }.
   const flagsSet = [];
-  for (const f of r.clearFlags) removeFlag(s, f);
+  for (const f of r.clearFlags) {
+    if (s.flags.includes(f) && !r.setFlags.includes(f)) flagsSet.push({ id: f, removed: true });
+    removeFlag(s, f);
+  }
   for (const f of r.setFlags) {
     if (!s.flags.includes(f)) flagsSet.push(f);
     addFlag(s, f);
@@ -192,7 +196,7 @@ export function applyChoice(s, node, optionId) {
       effects[k] = k === 'DEBT' || k === 'BUDGET' ? d : fallback ? scalePosFallback(d) : d;
     }
     s.pending_effects.push({ due, if: p.if || '', effects, text: p.text, source: optionId, code: node.id, from: s.year });
-    scheduled.push({ year: due, text: p.text, conditional: !!p.if });
+    scheduled.push({ year: due, text: `Năm ${due}: ${p.text}${p.if ? ' (nếu điều kiện còn phù hợp)' : ''}`, conditional: !!p.if });
   }
 
   const entry = {
@@ -213,7 +217,8 @@ export function applyChoice(s, node, optionId) {
   s.history.push(entry);
 
   return {
-    code: node.id,
+    code: optionId, // the choice id, e.g. 'Y1-B' (view contract)
+    nodeCode: node.id,
     headline: node.headline,
     choiceId: optionId,
     choiceLabel: fallback ? `Thí điểm / phân kỳ: ${choice.title}` : choice.title,
@@ -222,7 +227,6 @@ export function applyChoice(s, node, optionId) {
     deltas,
     resourceDeltas,
     flagsSet,
-    flagsCleared: r.clearFlags.filter((f) => !s.flags.includes(f)),
     scheduled,
     winners: entry.winners,
     losers: entry.losers,

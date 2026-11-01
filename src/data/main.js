@@ -9,7 +9,8 @@ export const MAIN_EVENTS = [
     year: 1,
     site: 'industrial',
     tag: 'labor',
-    chapter: 'Chương 2 — Giai cấp công nhân',
+    chapter: 2,
+    chapterTitle: 'Chương 2 — Giai cấp công nhân',
     headline: 'Khu công nghiệp Thiên Hà ngừng máy',
     context:
       '18.000 người làm việc tại khu công nghiệp Thiên Hà. Đơn hàng điện tử giảm, lương thực tế bị bào mòn, ca làm kéo dài. Hơn 4.000 người ngừng việc. Doanh nghiệp đề nghị tự động hóa 30% dây chuyền và xin ưu đãi thuế để giữ đơn hàng; tổ chức đại diện người lao động phản ánh thỏa ước tập thể không được thực hiện đầy đủ.',
@@ -114,7 +115,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 2 — Sứ mệnh lịch sử của giai cấp công nhân',
+      chapter: 2,
+      chapterTitle: 'Chương 2 — Sứ mệnh lịch sử của giai cấp công nhân',
       topic: 'Giai cấp công nhân: vị trí kinh tế – xã hội, điều kiện khách quan và chủ quan',
       lesson:
         'Phân biệt vị trí kinh tế – xã hội của giai cấp công nhân với điều kiện chủ quan để thực hiện vai trò (tổ chức, ý thức, đại diện). Phát triển công nghiệp không tự động bảo đảm quyền lợi người lao động.',
@@ -130,7 +132,8 @@ export const MAIN_EVENTS = [
     year: 2,
     site: 'economy',
     tag: 'economy',
-    chapter: 'Chương 3 — CNXH và thời kỳ quá độ',
+    chapter: 3,
+    chapterTitle: 'Chương 3 — CNXH và thời kỳ quá độ',
     headline: 'Tăng trưởng nhanh hay chuyển đổi có kiểm soát?',
     context:
       'Một tổ hợp chế tạo công nghệ cao đề nghị ưu đãi thuế 10 năm đổi lấy 65.000 việc làm dự kiến. Cùng lúc, các hợp tác xã nông nghiệp xin vốn số hóa khâu bảo quản và truy xuất nông sản. Cơ quan kế hoạch cảnh báo tiến độ giải ngân thấp, kiểm toán chưa theo kịp quy mô đầu tư.',
@@ -233,7 +236,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 3 — Chủ nghĩa xã hội và thời kỳ quá độ',
+      chapter: 3,
+      chapterTitle: 'Chương 3 — Chủ nghĩa xã hội và thời kỳ quá độ',
       topic: 'Đặc điểm thời kỳ quá độ; phát triển lực lượng sản xuất và tổ chức kinh tế',
       lesson:
         'Thời kỳ quá độ là tiến trình có mâu thuẫn và nhiệm vụ phát triển; cần phân biệt mục tiêu xã hội chủ nghĩa với công cụ, trình tự và năng lực tổ chức thực hiện.',
@@ -248,7 +252,8 @@ export const MAIN_EVENTS = [
     year: 3,
     site: 'ringroad',
     tag: 'democracy',
-    chapter: 'Chương 4 — Dân chủ XHCN',
+    chapter: 4,
+    chapterTitle: 'Chương 4 — Dân chủ XHCN',
     headline: 'Đường vành đai đi qua 6 xã',
     context:
       'Dự án đường vành đai rút ngắn thời gian vận tải nhưng ảnh hưởng 2.300 hộ, gồm nông dân và cư dân lâu năm. Hồ sơ quy hoạch công bố muộn; có hai phương án tuyến với chi phí khác nhau. Chính quyền địa phương đề nghị duyệt gấp để kịp ngân sách; nhóm cư dân trình phương án giảm tái định cư và yêu cầu phản hồi chính thức.',
@@ -337,7 +342,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 — Dân chủ xã hội chủ nghĩa',
+      chapter: 4,
+      chapterTitle: 'Chương 4 — Dân chủ xã hội chủ nghĩa',
       topic: 'Bản chất và thực hành dân chủ XHCN: tham gia, giám sát, quyền làm chủ',
       lesson:
         'Phân biệt thiết chế, tuyên bố dân chủ với cơ chế để người dân thực sự tham gia, được phản hồi, giám sát và yêu cầu giải trình.',
@@ -352,7 +358,8 @@ export const MAIN_EVENTS = [
     year: 4,
     site: 'hospital',
     tag: 'law',
-    chapter: 'Chương 4 — Nhà nước pháp quyền XHCN (chủ đề lớp: Chương 5)',
+    chapter: 4,
+    chapterTitle: 'Chương 4 — Nhà nước pháp quyền XHCN (chủ đề lớp: Chương 5)',
     headline: 'Hồ sơ đấu thầu bệnh viện bị rò rỉ',
     context:
       'Thanh tra phát hiện dấu hiệu nâng giá thiết bị y tế tại 5 bệnh viện. Một quan chức cấp cao có quan hệ với nhà thầu; ước tính 15% giá trị gói thầu có nguy cơ thất thoát (tỷ lệ hư cấu). Bệnh viện đang thiếu thiết bị, dừng hợp đồng có thể làm tăng thời gian chờ khám. Không ai bị coi là có tội trước khi có kết luận theo pháp luật.',
@@ -453,7 +460,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 4 — Nhà nước XHCN, nhà nước pháp quyền XHCN (lịch lớp: Chương 5)',
+      chapter: 4,
+      chapterTitle: 'Chương 4 — Nhà nước XHCN, nhà nước pháp quyền XHCN (lịch lớp: Chương 5)',
       topic: 'Thượng tôn pháp luật, kiểm soát quyền lực, trách nhiệm giải trình',
       lesson:
         'Nhà nước pháp quyền cần quy tắc áp dụng bình đẳng, bảo vệ quyền lợi hợp pháp của người liên quan và cơ chế kiểm soát quyền lực; chống tham nhũng không thay thế thủ tục pháp luật.',
@@ -468,7 +476,8 @@ export const MAIN_EVENTS = [
     year: 5,
     site: 'coalition',
     tag: 'class',
-    chapter: 'Chương 5 — Cơ cấu xã hội – giai cấp',
+    chapter: 5,
+    chapterTitle: 'Chương 5 — Cơ cấu xã hội – giai cấp',
     headline: 'Ai có mặt trong liên minh phát triển?',
     context:
       'Nông dân mất đất sản xuất vì vùng công nghệ; công nhân cần học nghề chuyển đổi; 120.000 lao động nền tảng chưa có mạng lưới an sinh phù hợp; nhóm kỹ sư đề nghị đầu tư nghiên cứu. Ngân sách chỉ đủ 2 trong 4 gói nếu làm toàn diện. Hiệp hội doanh nghiệp lo chi phí tuân thủ tăng.',
@@ -546,7 +555,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 5 — Cơ cấu xã hội – giai cấp và liên minh',
+      chapter: 5,
+      chapterTitle: 'Chương 5 — Cơ cấu xã hội – giai cấp và liên minh',
       topic: 'Biến đổi cơ cấu xã hội – giai cấp; liên minh công nhân – nông dân – trí thức',
       lesson:
         'Cơ cấu giai cấp biến đổi cùng phát triển kinh tế; liên minh dựa trên lợi ích vật chất, chính trị, xã hội cụ thể, không chỉ là việc nhắc tên ba giai cấp, tầng lớp.',
@@ -561,7 +571,8 @@ export const MAIN_EVENTS = [
     year: 6,
     site: 'valley',
     tag: 'ethnic',
-    chapter: 'Chương 6 — Vấn đề dân tộc',
+    chapter: 6,
+    chapterTitle: 'Chương 6 — Vấn đề dân tộc',
     headline: 'Thủy điện và thung lũng Bản Mây',
     context:
       'Dự án thủy điện mang điện cho vùng nghèo nhưng ảnh hưởng 3.600 hộ thuộc 4 cộng đồng dân tộc. Báo cáo kỹ thuật coi một khu đất sinh hoạt văn hóa là “đất bỏ hoang”. Các hộ yêu cầu hồ sơ bằng ngôn ngữ dễ tiếp cận, được tham gia đo đạc và có phương án sinh kế thay thế. Trên mạng có tin xuyên tạc về dự án, nhưng một số kiến nghị của người dân là có cơ sở.',
@@ -642,7 +653,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 6 — Vấn đề dân tộc trong thời kỳ quá độ',
+      chapter: 6,
+      chapterTitle: 'Chương 6 — Vấn đề dân tộc trong thời kỳ quá độ',
       topic: 'Bình đẳng, đoàn kết, phát triển và tôn trọng bản sắc các dân tộc',
       lesson:
         'Phân biệt bình đẳng dân tộc với đồng nhất hóa bản sắc; gắn quyền, lợi ích, sự tham gia và phát triển cùng nhau. Phản đối, khiếu nại ôn hòa không đồng nghĩa với kích động.',
@@ -657,7 +669,8 @@ export const MAIN_EVENTS = [
     year: 7,
     site: 'temple',
     tag: 'religion',
-    chapter: 'Chương 6 — Vấn đề tôn giáo',
+    chapter: 6,
+    chapterTitle: 'Chương 6 — Vấn đề tôn giáo',
     headline: 'Trung tâm “chữa bệnh bằng phép lạ”',
     context:
       'Một tổ chức thu tiền với lời hứa “chữa khỏi hoàn toàn”, khuyến khích bệnh nhân bỏ điều trị y khoa; nhiều người khiếu nại. Tổ chức này mượn địa điểm của một cộng đồng tôn giáo hoạt động hợp pháp, khiến tin đồn trên mạng quy kết cả cộng đồng. Cơ quan y tế có bằng chứng về quảng cáo gian dối nhưng chưa xác định mọi người liên quan.',
@@ -731,7 +744,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 6 — Vấn đề tôn giáo trong thời kỳ quá độ',
+      chapter: 6,
+      chapterTitle: 'Chương 6 — Vấn đề tôn giáo trong thời kỳ quá độ',
       topic: 'Tự do tín ngưỡng, không tín ngưỡng và xử lý hành vi vi phạm',
       lesson:
         'Tôn trọng quyền tự do tín ngưỡng và không tín ngưỡng, đồng thời xử lý vi phạm dựa trên hành vi và bằng chứng, không dựa trên định kiến về niềm tin.',
@@ -746,7 +760,8 @@ export const MAIN_EVENTS = [
     year: 8,
     site: 'housing',
     tag: 'family',
-    chapter: 'Chương 7 — Gia đình',
+    chapter: 7,
+    chapterTitle: 'Chương 7 — Gia đình',
     headline: 'Một thế hệ kẹt giữa nuôi con và chăm cha mẹ',
     context:
       'Ở đô thị, gia đình hạt nhân tăng nhanh; người lao động trẻ khó tiếp cận nhà ở và trường mầm non, người cao tuổi thiếu dịch vụ chăm sóc. Phụ nữ gánh phần lớn thời gian chăm sóc không được trả lương. Kinh tế số tạo việc làm linh hoạt nhưng thu nhập bấp bênh.',
@@ -821,7 +836,8 @@ export const MAIN_EVENTS = [
       },
     ],
     academic: {
-      chapter: 'Chương 7 — Gia đình trong thời kỳ quá độ',
+      chapter: 7,
+      chapterTitle: 'Chương 7 — Gia đình trong thời kỳ quá độ',
       topic: 'Vị trí, chức năng gia đình; cơ sở xây dựng gia đình; biến đổi gia đình hiện đại',
       lesson:
         'Gia đình vừa có chức năng xã hội vừa biến đổi theo điều kiện kinh tế, quan hệ giới và đô thị hóa; cần quan tâm đồng thời điều kiện vật chất và quan hệ tiến bộ, bình đẳng.',

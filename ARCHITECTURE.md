@@ -87,4 +87,24 @@ Không dùng quốc kỳ, biểu tượng, lãnh đạo thật. Icon nhóm xã h
 - Không thêm thư viện ngoài `three`, `vite` (chart vẽ bằng SVG/Canvas tay).
 
 ## Đề xuất thay đổi
-(trống)
+
+### Từ Integrator (đã áp dụng trong `sim-engine`)
+1. View `end` có thêm `initialMetrics` (giá trị năm 0).
+2. Hình dạng:
+   - `turningPoints[]`: `{year, code, label, text}` (kèm `choiceId`, `impact`)
+   - `delayed[]`: `{fromYear, year, text}` (kèm `source`, `deltas`)
+   - `stakeholders[]` (end): `{id, tone:'gain'|'loss'|'mixed', text}` (kèm `gains`, `losses`)
+   - `ending.secondary[]`: `{id, title}` (`id` là `E1..E4` hoặc ghi chú `REPAIR`/`LABOR_UNRESOLVED`/`DEBT`)
+3. View `result` và `randomResult` có `code` = id lựa chọn (vd `'Y1-B'`); id node nằm ở `nodeCode`. `finalRepair` có `headline` và `text`.
+4. Cờ bị xóa bởi lựa chọn xuất hiện trong `flagsSet` dạng `{id, removed:true}`; cờ mới đặt vẫn là chuỗi id.
+5. Mọi view có `randomEvents: boolean`. Thêm `game.setRandomEvents(bool)` và `game.toggleRandomEvents()` (trả về giá trị mới).
+6. `chapter` (view `event`, `academic.chapter`) là số; nhãn chữ ở `chapterTitle`. `scheduled[].text` là câu tiếng Việt đọc được (`"Năm 5: ..."`).
+7. `history[]` (end) gồm cả mục Y, C và R: `{year, code, choiceId, label, metricsAfter}` (C chỉ thông báo có `choiceId: null`).
+
+### Từ Engine (bổ sung, không phá hợp đồng)
+- Mọi view có `totalYears`. `event` có `chapterTitle`, `variantNotes[]`, `applied[]` (hệ quả vừa áp dụng ngay trước lựa chọn: hiệu ứng `onPresent` hoặc kết quả lựa chọn C). `consequence` có `applied[]` cho nút C chỉ thông báo (C03, C04). `yearStart` có `nextChapter`, `nextChapterTitle`.
+- `result` có thêm `outcome` (đoạn tường thuật), `notes[]`, `capacityCut` (bị giảm 40% do CAPACITY<35), `fallback`.
+- Option dự phòng khi không đủ ngân sách: id `'<id gốc>-P'` (vd `'Y8-A-P'`), có `fallbackFor`.
+- `end` có thêm `ending.progress[]`, `ending.challenges[]`, `ending.whatIf`, `timeline[]` (chỉ số cuối mỗi năm, năm 0 = khởi điểm).
+- `createGame({ seed, randomEvents, bus, emit })`: `emit:false` cho chạy headless. `game.sync()` phát lại `sim:view`/`sim:state` (dùng sau khi đăng ký listener). `game.canUndo`.
+- Số khởi điểm đã chỉnh qua playtest (`src/data/config.js`): `BUDGET=0`, thu cơ sở `8`/năm (GDD: 60 và 12 làm ngân sách không bao giờ ràng buộc).
