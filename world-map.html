@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bản đồ bố cục Hòa Minh — debug</title>
+    <style>
+      html, body { margin: 0; background: #222; color: #eee; font: 13px monospace; }
+      canvas { display: block; margin: 0 auto; }
+      #info { position: fixed; left: 8px; top: 8px; background: rgba(0,0,0,0.6); padding: 4px 8px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="map" width="1500" height="1050"></canvas>
+    <div id="info"></div>
+    <script type="module">
+      // Top-down layout map. ?x0=&z0=&x1=&z1= zooms to a region.
+      import { drawMap } from '/src/world/mapview.js';
+      const q = new URLSearchParams(location.search);
+      const view = { x0: +(q.get('x0') ?? -150), z0: +(q.get('z0') ?? -110), x1: +(q.get('x1') ?? 150), z1: +(q.get('z1') ?? 100) };
+      const overlaps = drawMap(document.getElementById('map'), { view });
+      document.getElementById('info').textContent = `${overlaps.length} overlaps`;
+      window.__overlaps = overlaps;
+    </script>
+  </body>
+</html>

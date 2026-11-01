@@ -1,5 +1,5 @@
 // Diorama of the fictional island republic "Hòa Minh".
-// Contract (ARCHITECTURE.md): createDiorama(canvas) -> { focus, setState, pulse, setQuality, bindBus }.
+// Contract (ARCHITECTURE.md): createDiorama(canvas) -> { focus, resetView, setState, pulse, setQuality, bindBus }.
 import * as THREE from 'three';
 import { clamp, damp } from '../core/math.js';
 import { makeRng } from '../core/rng.js';
@@ -11,6 +11,8 @@ import { Smoke } from './smoke.js';
 import { PaintPass } from './post.js';
 import { CameraRig, PITCH } from './camera.js';
 import { buildProps, buildMovers, EXTRA_SMOKE, SITES } from './layout.js';
+import { moverPoint, validateLayout } from './footprint.js';
+import { createLayoutOverlay } from './overlay.js';
 
 const METRICS = ['PROD', 'LIFE', 'TRUST', 'LAW', 'EQUITY', 'COHESION'];
 const DEFAULTS = { PROD: 52, LIFE: 48, TRUST: 54, LAW: 51, EQUITY: 45, COHESION: 57 };
@@ -50,6 +52,8 @@ export function createDiorama(canvas, opts = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(30, 16 / 9, 5, 3000);
   const rig = new CameraRig(camera);
+  // Viewer pan / zoom / turn on the canvas (UI panels sit above it and keep their own events).
+  const unbindInput = opts.input === false ? () => {} : rig.bindInput(canvas);
   const U = createSharedUniforms();
 
   const atlas = buildAtlas({ scale: 1 });
@@ -73,6 +77,8 @@ export function createDiorama(canvas, opts = {}) {
 
   // ---- static props ----
   const ruled = [];
+  // Chimney anchors follow the cards when the viewer turns the camera.
+  const anchors = [];
   props.forEach((p) => {
     const glowCh = p.glowK ? GLOW_CH[p.glowK] : undefined;
     const i = statics.add({ ...p, glowCh });
@@ -81,6 +87,7 @@ export function createDiorama(canvas, opts = {}) {
     const def = statics.items[i].def;
     for (const [u, v] of def.smoke ?? []) {
       const pos = statics.anchor(i, u, v, PITCH);
+      anchors.push({ pos, i, u, v });
       const it = statics.items[i];
       smoke.addEmitter(pos, {
         rate: 7, size: 3.6, rise: 2.6, shade: 0.62,
@@ -113,18 +120,9 @@ export function createDiorama(canvas, opts = {}) {
       const t = ((s % (2 * mv.L)) + 2 * mv.L) % (2 * mv.L);
       if (t > mv.L) { s = 2 * mv.L - t; dir = -1; } else s = t;
     }
-    const { lens, path } = mv;
-    let j = 1;
-    while (j < lens.length - 1 && lens[j] < s) j++;
-    const a = path[j - 1], b = path[j];
-    const seg = lens[j] - lens[j - 1] || 1;
-    const f = (s - lens[j - 1]) / seg;
-    let dx = (b[0] - a[0]) / seg, dz = (b[1] - a[1]) / seg;
-    const lane = mv.lane * (mv.walker ? 0.6 : 0.95);
-    const x = a[0] + (b[0] - a[0]) * f - dz * lane * dir;
-    const z = a[1] + (b[1] - a[1]) * f + dx * lane * dir;
+    const [x, z, dx] = moverPoint(mv, mv.path, mv.lens, mv.L, s, dir);
     dynamics.setPos(mv.i, x, 0, z);
-    if (Math.abs(dx) > 0.15) dynamics.setFlip(mv.i, dx * dir < 0);
+    if (Math.abs(dx) > 0.15) dynamics.setFlip(mv.i, dx < 0);
   }
 
   // ---- clouds (only seen from afar) ----
@@ -204,7 +202,7 @@ export function createDiorama(canvas, opts = {}) {
     last = now;
     resize();
     tick(Math.min(0.05, Math.max(0, realDt)), realDt > 0.25 ? 0.016 : Math.min(0.05, realDt));
-    post.render(scene, camera);
+    present();
 
     // Auto-lower quality once if frames stay slow for a few seconds.
     // Ignore hitches and throttled background frames; only sustained slowness counts.
@@ -243,6 +241,10 @@ export function createDiorama(canvas, opts = {}) {
 
     const d = rig.update(camDt);
     U.uCamDist.value = d;
+    if (U.uYaw.value !== rig.user.yaw) {
+      U.uYaw.value = rig.user.yaw;
+      for (const a of anchors) statics.anchor(a.i, a.u, a.v, PITCH, rig.user.yaw, a.pos);
+    }
 
     for (const mv of movingThings) placeMover(mv, dt);
     for (const c of cloudList) {
@@ -277,6 +279,11 @@ export function createDiorama(canvas, opts = {}) {
     rig.focus(siteId, { instant });
   }
 
+  // Return from the viewer's pan / zoom to the current site framing.
+  function resetView() {
+    rig.resetView();
+  }
+
   function bindBus(bus) {
     const offs = [
       bus.on('sim:view', (p) => {
@@ -288,22 +295,49 @@ export function createDiorama(canvas, opts = {}) {
     return () => offs.forEach((f) => f());
   }
 
+  // ---- layout debug ----
+  // Drawn after the paint pass so the lines stay crisp.
+  let overlay = null;
+  const overlayScene = new THREE.Scene();
+  function present() {
+    post.render(scene, camera);
+    if (!overlay?.visible) return;
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.render(overlayScene, camera);
+    renderer.autoClear = true;
+  }
+  function checkLayout(state) {
+    return validateLayout(props, movers, { state: state === 'all' ? undefined : state ?? S });
+  }
+  function showLayout(on = true) {
+    if (on && !overlay) {
+      overlay = createLayoutOverlay(props, movers, checkLayout('all').overlaps);
+      overlayScene.add(overlay);
+    }
+    if (overlay) overlay.visible = on;
+    return on;
+  }
+
   function dispose() {
     running = false;
+    unbindInput();
     renderer.dispose();
   }
 
   const api = {
-    focus, setState, pulse, setQuality, bindBus, dispose,
+    focus, resetView, setState, pulse, setQuality, bindBus, dispose,
+    // Overlap report for the current state, a given state, or 'all' (every prop that can appear).
+    validateLayout: checkLayout,
     get state() { return { ...S, flags: [...S.flags] }; },
     get site() { return rig.site; },
     get quality() { return quality; },
     sites: SITE_IDS,
-    debug: { renderer, scene, camera, rig, post, smoke, statics, dynamics, render: () => post.render(scene, camera),
+    debug: { renderer, scene, camera, rig, post, smoke, statics, dynamics, showLayout, render: present,
       // Fast-forward the world (for headless checks / screenshots).
       advance(seconds = 1) {
         for (let t = 0; t < seconds; t += 1 / 30) tick(1 / 30, 1 / 30);
-        post.render(scene, camera);
+        present();
       },
     },
   };

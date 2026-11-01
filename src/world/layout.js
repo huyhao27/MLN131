@@ -1,6 +1,7 @@
 // Hand-authored map of the fictional island republic "Hoa Minh".
 // x grows east (screen right), z grows south (toward the camera). Units ~ meters x 10.
 import { makeRng, fbm2 } from '../core/rng.js';
+import { Occupancy, settle } from './footprint.js';
 
 // ---------- state rules ----------
 // A rule maps the normalized world state S -> 0..1 (visibility target of a prop).
@@ -87,7 +88,7 @@ export const SITES = {
   industrial: { x: 80, z: -24, d: 76 },
   economy: { x: 28, z: -52, d: 92 },
   ringroad: { x: -40, z: 2, d: 88 },
-  hospital: { x: 0, z: 4, d: 62 },
+  hospital: { x: -6, z: 4, d: 62 },
   coalition: { x: -14, z: 44, d: 72 },
   valley: { x: -84, z: -42, d: 100, fy: 0.0 },
   temple: { x: -72, z: 33, d: 60 },
@@ -105,6 +106,19 @@ export function distPolyline(px, pz, pts) {
   let d = Infinity;
   for (let i = 0; i < pts.length - 1; i++) d = Math.min(d, distSeg(px, pz, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
   return d;
+}
+// Half width of the river at depth z (matches the carve in ground.js).
+export const riverHalfWidth = (z) => 1.6 + Math.max(0, Math.min(1, (z + 46) / 110)) * 2.6;
+export const onDock = (x, z) => DOCKS.some((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
+// Sea, river or reservoir.
+export function isWater(x, z) {
+  if (onDock(x, z)) return false;
+  if (landField(x, z) < 0.03) return true;
+  if (x > -125 && x < -60 && z > -70) {
+    if (distPolyline(x, z, RIVER) < riverHalfWidth(z) + 0.4) return true;
+    if (inEllipse(x, z, RESERVOIR, 1)) return true;
+  }
+  return false;
 }
 const inEllipse = (x, z, e, pad = 0) => ((x - e.x) / (e.rx + pad)) ** 2 + ((z - e.z) / (e.rz + pad)) ** 2 < 1;
 
@@ -186,8 +200,9 @@ export function buildProps() {
       if (j === 1) add(rng.pick(['house_red', 'house_blue', 'house_terra']), x, z);
       else {
         const th = 38 + ((vi * 3 + j) % 6) * 6;
-        add('hut', x, z, { show: below('EQUITY', th) });
-        add('solar_house', x, z + 0.05, { show: above('EQUITY', th) });
+        const alt = `v${vi}-${j}`;
+        add('hut', x, z, { show: below('EQUITY', th), alt });
+        add('solar_house', x, z, { show: above('EQUITY', th), alt });
       }
     }
     add('bamboo', vx + 12, vz - 2);
@@ -204,7 +219,7 @@ export function buildProps() {
   add('trash', -36, -8, { show: below('LAW', 40) });
 
   // ===== Hospital =====
-  add('hospital', 0, 3, { glowK: 'TRUST' });
+  add('hospital', -9, 3, { glowK: 'TRUST' });
   add('shophouses', -18, 10);
   add('shophouses', 17, 6);
   add('crowd_family', -4, 13, { show: above('LIFE', 35) });
@@ -270,8 +285,8 @@ export function buildProps() {
   add('community_hall', -74, -24, { show: flag('REGION_PARTICIPATION') });
   add('crowd_farmers', -77, -18, { show: any(flag('REGION_PARTICIPATION'), above('TRUST', 60)) });
   add('crowd_farmers', -70, -16, { show: above('COHESION', 45) });
-  add('hut', -102, -10, { show: below('EQUITY', 45) });
-  add('solar_house', -102, -10, { show: above('EQUITY', 45) });
+  add('hut', -102, -10, { show: below('EQUITY', 45), alt: 'valley' });
+  add('solar_house', -102, -10, { show: above('EQUITY', 45), alt: 'valley' });
   add('buffalo', -88, -22);
   for (let i = 0; i < 6; i++) add(i % 2 ? 'bamboo' : 'pine', -110 + i * 7, -36 + (i % 3) * 3);
   add('pine', -62, -52);
@@ -323,8 +338,13 @@ export function buildProps() {
   // ===== Landmarks seen from the overview =====
   add('lighthouse', -112, 72);
 
+  // ===== Resolve into free slots =====
+  const occ = new Occupancy(WALKWAYS);
+  const placed = settle(P, occ, { log: true });
+  P.length = 0;
+  P.push(...placed);
+
   // ===== Scattered trees (seeded jittered grid, filtered) =====
-  const occupied = P.map((p) => ({ x: p.x, z: p.z, r: p.k.startsWith('mountain') ? 0 : 4.5 }));
   const trees = makeRng('trees');
   const CELL = 6.5;
   for (let gz = -110; gz < 100; gz += CELL) {
@@ -332,14 +352,13 @@ export function buildProps() {
       const x = gx + trees.range(0, CELL), z = gz + trees.range(0, CELL);
       const land = landField(x, z);
       if (land < 0.08) continue;
-      let ok = true;
-      for (const r of ROADS) if (distPolyline(x, z, r.pts) < r.w + 2.2) { ok = false; break; }
-      if (!ok) continue;
-      if (distPolyline(x, z, RIVER) < 5) continue;
       if (inEllipse(x, z, RESERVOIR, 3)) continue;
+      if (distPolyline(x, z, RIVER) < 5) continue;
       if (ZONES.some((zn) => inEllipse(x, z, zn, 1))) continue;
       if (FIELDS.some((f) => Math.abs(x - f.x) < f.w / 2 + 1 && Math.abs(z - f.z) < f.d / 2 + 1)) continue;
-      if (occupied.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + 2.5)) continue;
+      // Keep a margin from roads and from everything built (trees stay out of yards).
+      const probe = { k: 'bush', x, z, s: 2.2 };
+      if (occ.conflict(probe, { roadPad: 1.6 })) continue;
       const forest = fbm2(x * 0.03, z * 0.03, 3, 5) + (x < -50 && z < -10 ? 0.35 : 0) + (z < -60 ? 0.2 : 0);
       const density = 0.18 + forest * 0.9;
       if (trees() > density) continue;
@@ -347,8 +366,11 @@ export function buildProps() {
       const k = forest > 0.4 ? trees.pick(['tree_c', 'pine', 'tree_a']) : rural ? trees.pick(['tree_a', 'palm', 'bamboo', 'tree_b']) : trees.pick(['tree_b', 'tree_a', 'tree_bloom', 'bush']);
       // A share of trees only grows when living standards rise (greenery).
       const grows = trees() < 0.3;
-      add(k, x, z, { s: trees.range(0.85, 1.15), flip: trees() < 0.5, show: grows ? above('LIFE', 35 + trees() * 40) : undefined });
-      if (trees() < 0.25) add(trees.pick(['bush', 'bush_lime', 'rock']), x + trees.range(-3, 3), z + trees.range(1, 3), { s: trees.range(0.8, 1.1) });
+      occ.add(add(k, x, z, { s: trees.range(0.85, 1.15), flip: trees() < 0.5, show: grows ? above('LIFE', 35 + trees() * 40) : undefined }));
+      if (trees() < 0.25) {
+        const b = { k: trees.pick(['bush', 'bush_lime', 'rock']), x: x + trees.range(-3, 3), z: z + trees.range(1, 3), s: trees.range(0.8, 1.1) };
+        if (!occ.conflict(b, { roadPad: 1 })) occ.add(add(b.k, b.x, b.z, { s: b.s }));
+      }
     }
   }
   return P;
@@ -357,37 +379,72 @@ export function buildProps() {
 // ---------- moving things ----------
 const ringArc = (t0, t1, n = 24) => Array.from({ length: n + 1 }, (_, i) => ringPoint(t0 + (t1 - t0) * (i / n)));
 
+// A slice [s0, s1] (arclength) of road i, offset sideways by `off` (+ = left of travel).
+export function roadOffset(i, s0, s1, off) {
+  const pts = ROADS[i].pts;
+  const out = [];
+  let acc = 0;
+  for (let j = 0; j < pts.length - 1; j++) {
+    const [ax, az] = pts[j], [bx, bz] = pts[j + 1];
+    const L = Math.hypot(bx - ax, bz - az) || 1;
+    const nx = -(bz - az) / L, nz = (bx - ax) / L;
+    for (const s of [Math.max(s0, acc), Math.min(s1, acc + L)]) {
+      if (s < acc || s > acc + L || s0 > acc + L || s1 < acc) continue;
+      const t = (s - acc) / L;
+      const q = [ax + (bx - ax) * t + nx * off, az + (bz - az) * t + nz * off];
+      const last = out[out.length - 1];
+      if (!last || Math.hypot(last[0] - q[0], last[1] - q[1]) > 0.05) out.push(q);
+    }
+    acc += L;
+  }
+  return out;
+}
+// Sidewalk along road i: 1.7 beyond the kerb, side +1 = left of the road's drawing direction.
+const sidewalk = (i, s0, s1, side) => roadOffset(i, s0, s1, side * (ROADS[i].w / 2 + 1.7));
+
+// Pedestrian routes (ping-pong; walkers keep to the right). Props are kept off them.
+// n: walkers, metric/base: they appear as that metric rises.
+const W5 = ['walker_a', 'walker_b', 'walker_c', 'walker_d', 'walker_e'];
+export const WALKWAYS = [
+  { id: 'industrial', path: sidewalk(3, 24, 43, -1), n: 6, keys: ['worker', 'worker', 'walker_e'], metric: 'COHESION' },
+  { id: 'industrial-n', path: sidewalk(3, 24, 43, 1), n: 3, keys: ['worker'], metric: 'PROD' },
+  { id: 'hospital', path: [[-17, 7], [-1, 7]], n: 4, keys: [...W5, 'elder'], metric: 'TRUST' },
+  { id: 'hospital-st', path: sidewalk(1, 30, 62, 1), n: 4, keys: ['elder', ...W5], metric: 'TRUST' },
+  { id: 'market', path: [[-23, 52], [-1, 52]], n: 8, keys: [...W5, 'child'], metric: 'LIFE', base: 15 },
+  { id: 'housing', path: sidewalk(1, 68, 100, 1), n: 8, keys: [...W5, 'child', 'elder'], metric: 'LIFE' },
+  { id: 'valley', path: [[-82, -7], [-66, -7]], n: 5, keys: ['farmer', 'farmer', 'child'], metric: 'COHESION' },
+  { id: 'temple', path: [[-79, 33.5], [-62, 33.5]], n: 6, keys: ['elder', ...W5], metric: 'COHESION' },
+  { id: 'village', path: sidewalk(0, 150, 178, -1), n: 5, keys: ['farmer', 'walker_b', 'child'], metric: 'TRUST' },
+  { id: 'port', path: [[87, 53], [115, 53]], n: 6, keys: ['worker'], metric: 'PROD' },
+  { id: 'economy', path: [[25, -47.5], [43, -47.5]], n: 6, keys: W5, metric: 'PROD' },
+].map((w) => ({ ...w, laneOff: 0.35, walker: true }));
+
+const laneOf = (i) => ROADS[i].w * 0.25;
+
 export function buildMovers() {
   const M = [];
-  const loop = ringPts;
-  // Vehicles around the ring road (two lanes, opposite directions).
+  // Vehicles drive on the right: lane offset is always to the right of travel; the ring
+  // runs both ways by reversing the loop. Ping-pong paths swap sides at the ends.
+  const ringRev = [...ringPts].reverse();
   const veh = ['car_red', 'bus', 'car_blue', 'truck', 'car_white', 'rider', 'car_red', 'rider', 'bus', 'car_blue', 'truck', 'rider'];
-  veh.forEach((k, i) => M.push({ k, path: loop, closed: true, offset: i / veh.length, speed: k === 'rider' ? 7 : 5.5, lane: i % 2 ? 1 : -1, show: i < 6 ? undefined : above('PROD', 35 + i * 3) }));
+  veh.forEach((k, i) => M.push({ k, path: i % 2 ? ringRev : ringPts, closed: true, offset: i / veh.length, speed: k === 'rider' ? 7 : 5.5, laneOff: -laneOf(0), show: i < 6 ? undefined : above('PROD', 35 + i * 3) }));
   // Delivery riders on the coalition stretch and main avenue.
-  for (let i = 0; i < 6; i++) M.push({ k: 'rider', path: ringArc(Math.PI * 0.25, Math.PI * 0.95), offset: i / 6, speed: 6.5, lane: i % 2 ? 1 : -1, show: above('PROD', 20 + i * 8) });
-  for (let i = 0; i < 4; i++) M.push({ k: i % 2 ? 'car_white' : 'rider', path: ROADS[1].pts, offset: i / 4, speed: 6, lane: i % 2 ? 1 : -1 });
+  for (let i = 0; i < 6; i++) M.push({ k: 'rider', path: ringArc(Math.PI * 0.25, Math.PI * 0.95), offset: i / 6, speed: 6.5, laneOff: -laneOf(0), show: above('PROD', 20 + i * 8) });
+  for (let i = 0; i < 4; i++) M.push({ k: i % 2 ? 'car_white' : 'rider', path: ROADS[1].pts, offset: i / 4, speed: 6, laneOff: -laneOf(1) });
   // Trucks to the industrial park and the port.
-  for (let i = 0; i < 3; i++) M.push({ k: 'truck', path: ROADS[3].pts, offset: i / 3, speed: 4.5, lane: i % 2 ? 1 : -1, show: above('PROD', 30 + i * 15) });
-  M.push({ k: 'truck', path: [[64, 40], [84, 42], [98, 46], [104, 52]], offset: 0.2, speed: 4, lane: 1, show: above('PROD', 45) });
+  for (let i = 0; i < 3; i++) M.push({ k: 'truck', path: ROADS[3].pts, offset: i / 3, speed: 4.5, laneOff: -laneOf(3), show: above('PROD', 30 + i * 15) });
+  M.push({ k: 'truck', path: [[64, 40], [84, 42], [98, 46], [101, 47]], offset: 0.2, speed: 4, laneOff: -laneOf(1), show: above('PROD', 45) });
   // Boats in the bay.
-  M.push({ k: 'boat', path: [[80, 80], [130, 84], [138, 70], [90, 72], [80, 80]], closed: true, offset: 0, speed: 3, lane: 0 });
-  M.push({ k: 'boat', path: [[-120, 72], [-96, 82], [-70, 78], [-120, 72]], closed: true, offset: 0.4, speed: 2.5, lane: 0 });
-  M.push({ k: 'boat', path: [[60, 74], [76, 78], [92, 86], [60, 74]], closed: true, offset: 0.7, speed: 2.2, lane: 0, show: above('LIFE', 45) });
+  M.push({ k: 'boat', path: [[80, 80], [130, 84], [138, 70], [90, 72], [80, 80]], closed: true, offset: 0, speed: 3 });
+  M.push({ k: 'boat', path: [[-120, 72], [-96, 82], [-70, 78], [-120, 72]], closed: true, offset: 0.4, speed: 2.5 });
+  M.push({ k: 'boat', path: [[60, 78], [76, 80], [92, 88], [60, 78]], closed: true, offset: 0.7, speed: 2.2, show: above('LIFE', 45) });
 
-  // Pedestrians: little loops at each site. Count grows with trust / cohesion / life.
-  const walk = (path, n, keys, metric = 'TRUST', base = 25) => {
-    for (let i = 0; i < n; i++) M.push({ k: keys[i % keys.length], path, closed: true, offset: i / n, speed: 1.1 + (i % 3) * 0.2, lane: (i % 3) - 1, walker: true, show: above(metric, base + (i * 47) % 50) });
-  };
-  const W = ['walker_a', 'walker_b', 'walker_c', 'walker_d', 'walker_e'];
-  walk([[60, -11], [100, -11], [100, -13], [60, -13]], 8, ['worker', 'worker', 'walker_e'], 'COHESION');
-  walk([[-12, 16], [12, 16], [12, 18], [-12, 18]], 7, [...W, 'elder'], 'TRUST');
-  walk([[-24, 53], [0, 53], [0, 56], [-24, 56]], 10, [...W, 'child'], 'LIFE', 15);
-  walk([[14, 38], [56, 38], [56, 40], [14, 40]], 9, [...W, 'child', 'elder'], 'LIFE');
-  walk([[-82, -8], [-66, -8], [-66, -6], [-82, -6]], 5, ['farmer', 'farmer', 'child'], 'COHESION');
-  walk([[-80, 40], [-60, 40], [-60, 42], [-80, 42]], 6, ['elder', ...W], 'COHESION');
-  walk([[-46, 6], [-32, -8], [-30, -6], [-44, 8]], 5, ['farmer', 'walker_b', 'child'], 'TRUST');
-  walk([[86, 54], [112, 54], [112, 56], [86, 56]], 6, ['worker'], 'PROD');
-  walk([[20, -42], [56, -42], [56, -40], [20, -40]], 6, [...W], 'PROD');
+  // Pedestrians on their walkways. Count grows with trust / cohesion / life.
+  for (const w of WALKWAYS) {
+    for (let i = 0; i < w.n; i++) {
+      M.push({ k: w.keys[i % w.keys.length], id: w.id, path: w.path, offset: i / w.n, speed: 1.1 + (i % 3) * 0.2, laneOff: w.laneOff, walker: true, show: above(w.metric, (w.base ?? 25) + (i * 47) % 50) });
+    }
+  }
   return M;
 }
 
