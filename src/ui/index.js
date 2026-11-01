@@ -8,6 +8,7 @@ import { createWindowManager } from './windows.js';
 import { createTracker, createPopover } from './popover.js';
 import { PHASE_TAGS } from './labels.js';
 import { storageGet, storageSet } from './util.js';
+import { createTutorial } from './tutorial.js';
 
 const INPUT_GUARD_MS = 380; // ignore keys right after a new card appears (double-press safety)
 
@@ -46,6 +47,10 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
   const dash = createDashboard(ui.querySelector('.tt-top'), dashBody, { skip: () => st.skip });
   const tracker = createTracker();
   const pop = createPopover(ui, { tracker, getView: () => st.view });
+  const tutorial = createTutorial(ui, {
+    guardInput: () => { st.shownAt = performance.now(); },
+    onStart: () => act(st.view?.options?.[0]),
+  });
 
   function applyModes() {
     ui.classList.toggle('tt-presenter', st.presenter);
@@ -71,7 +76,7 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
   }
 
   function act(opt) {
-    if (!opt || st.acting) return;
+    if (!opt || st.acting || tutorial.blocking) return;
     if (opt.disabled) {
       toast(opt.disabledReason || 'Phương án này chưa thể chọn', 'is-bad');
       const btn = activeEl().querySelector(`[data-opt="${CSS.escape(opt.id)}"]`);
@@ -124,6 +129,9 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       endEl.innerHTML = '';
       const scrollTop = changed ? 0 : panel.querySelector('[data-scroll]')?.scrollTop ?? 0;
       panel.innerHTML = renderCard(view, { canToggleRandom: typeof onToggleRandom === 'function' });
+      if (view.phase === 'briefing') {
+        panel.querySelector('.tt-choices').innerHTML = '<button class="tt-continue" type="button" data-action="start-guided">Bắt đầu có hướng dẫn</button><button class="tt-ghost" type="button" data-action="start-alone">Tôi đã biết cách chơi</button>';
+      }
       const sc = panel.querySelector('[data-scroll]');
       if (sc) sc.scrollTop = scrollTop;
       if (wasEnd) wm.refresh('card');
@@ -136,6 +144,7 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       const card = activeEl().firstElementChild;
       card?.classList.add('is-enter');
     }
+    tutorial.render(view);
   }
 
   // ---------- input ----------
@@ -157,6 +166,8 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
 
   function onKey(e) {
     if (e.defaultPrevented || e.isComposing) return;
+    if (tutorial.blocking) return;
+    if (e.target.closest?.('[data-help], .tt-tutorial-hint, [data-action="start-guided"], [data-action="start-alone"]') && (e.key === 'Enter' || e.key === ' ')) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     const k = e.key;
@@ -213,7 +224,10 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       if (e.repeat || tooSoon) return;
       const opts = st.view.options ?? [];
       // Enter/Space only "continues": it never casts a vote among several policies.
-      if (opts.length === 1) act(opts[0]);
+      if (opts.length === 1) {
+        if (st.view.phase === 'briefing') tutorial.startGuided(true);
+        act(opts[0]);
+      }
       else if (opts.length > 1) toast('Bấm phím số 1–' + opts.length + ' để chọn phương án');
       return;
     }
@@ -222,17 +236,24 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       e.preventDefault();
       if (e.repeat || tooSoon) return;
       const opt = optionForKey(digit);
+      if (opt && st.view.phase === 'briefing') tutorial.startGuided(true);
       if (opt) act(opt);
     }
   }
   window.addEventListener('keydown', onKey);
 
   ui.addEventListener('click', (e) => {
+    if (tutorial.blocking) return;
     if (wm.suppressClick()) return; // release of a window drag/resize
     const popEl = e.target.closest('[data-pop]');
     if (popEl && !popEl.closest('.tt-pop')) { pop.open(popEl); return; }
     const btn = e.target.closest('[data-opt], [data-action]');
     if (!btn) return;
+    if (btn.dataset.action === 'start-guided' || btn.dataset.action === 'start-alone') {
+      tutorial.startGuided(btn.dataset.action === 'start-guided');
+      act(st.view.options[0]);
+      return;
+    }
     btn.blur();
     if (btn.dataset.action === 'toggle-random') {
       const on = onToggleRandom?.();
@@ -254,6 +275,7 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
     toast: (text) => toast(String(text)),
     destroy() {
       window.removeEventListener('keydown', onKey);
+      tutorial.destroy();
       rootEl.innerHTML = '';
     },
   };

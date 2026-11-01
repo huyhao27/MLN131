@@ -5,6 +5,9 @@ Game mô phỏng điều hành 8 năm cho môn MLN131 — Chủ nghĩa xã hội
 **Chơi online:** https://huyhao27.github.io/MLN131/
 
 ## Điều khiển (người dẫn)
+
+Lần đầu mở game có thể chọn **Hướng dẫn tôi** để học ngay trong năm 1. Tutorial giải thích chỉ số, ngân sách, lựa chọn và hệ quả; người chơi tự quyết định chính sách. Nút **Cách chơi** luôn có sẵn để xem lại mà không thay đổi ván. Các cơ chế mới có lời nhắc ngắn khi xuất hiện lần đầu.
+
 | Phím | Tác dụng |
 |---|---|
 | `1` `2` `3` (`4`) | Chọn phương án |

@@ -44,6 +44,43 @@
 .tt-ui h1, .tt-ui h2, .tt-ui h3 { margin: 0; }
 .tt-ui kbd { font-family: var(--sans); }
 
+/* Tutorial is independent of simulation state; native dialog provides focus trapping. */
+.tt-help-tools { position: absolute; left: 1em; bottom: 1em; z-index: 110; pointer-events: auto; }
+.tt-help-tools button, .tt-tutorial button, .tt-tutorial-hint button {
+  font: inherit; cursor: pointer; border: 1px solid var(--line); border-radius: .5em;
+  padding: .55em .85em; color: var(--ink); background: var(--paper);
+}
+.tt-help-tools button:focus-visible, .tt-tutorial button:focus-visible, .tt-tutorial summary:focus-visible,
+.tt-tutorial-hint button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.tt-tutorial {
+  pointer-events: auto; color: var(--ink); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 1em; box-shadow: var(--shadow); padding: 1.4em;
+  width: min(34em, calc(100vw - 2em)); max-height: 85dvh; overflow: auto;
+  margin: auto; font: inherit;
+}
+.tt-tutorial::backdrop { background: rgb(30 25 20 / 32%); }
+.tt-tutorial h2 { font: bold 1.45em var(--serif); margin: .25em 0 .7em; }
+.tt-tutorial-actions { display: flex; flex-wrap: wrap; gap: .65em; margin-top: 1em; }
+.tt-tutorial-actions button:first-child { background: var(--accent); color: white; }
+.tt-tutorial details { border-top: 1px solid var(--line); padding: .65em 0; }
+.tt-tutorial summary { cursor: pointer; font-weight: 600; }
+.tt-tutorial details p { margin-top: .65em; }
+.tt-tutorial li { margin-bottom: .4em; }
+.tt-tutorial-target { outline: 3px solid var(--accent); outline-offset: 4px; }
+.tt-tutorial-hint {
+  position: absolute; left: 1em; bottom: 4.2em; z-index: 110; pointer-events: auto;
+  width: min(26em, calc(100% - 2em)); max-height: 35dvh; overflow: auto;
+  padding: .85em 1em; background: var(--paper); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent); border-radius: .6em; box-shadow: var(--shadow);
+}
+.tt-tutorial-hint[hidden] { display: none; }
+.tt-tutorial-hint h3 { font-size: 1em; margin-bottom: .4em; }
+.tt-tutorial-hint p { font-size: .86em; }
+@media (max-width: 700px) {
+  .tt-tutorial { width: calc(100vw - 1em); padding: 1em; }
+  .tt-tutorial-hint { max-height: 25dvh; }
+}
+
 .tt-glyph { display: inline-flex; width: 1.1em; height: 1.1em; flex: none; vertical-align: -0.18em; }
 .tt-glyph svg { width: 100%; height: 100%; }
 
