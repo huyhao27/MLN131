@@ -112,3 +112,5 @@ Không dùng quốc kỳ, biểu tượng, lãnh đạo thật. Icon nhóm xã h
 ### Từ Diorama (bổ sung, không phá hợp đồng)
 - `world.resetView()`: đưa camera về khung hình của địa điểm hiện tại. Người xem có thể kéo (chuột trái / chạm) để lia, lăn chuột / chụm hai ngón để thu phóng, kéo chuột phải để xoay nhẹ, nhấp đúp để về khung hình. `focus()` sang địa điểm mới sẽ lấy lại camera; `focus()` cùng địa điểm giữ nguyên góc nhìn người xem chọn. Diorama không nghe phím nào.
 - `world.validateLayout(state?)` trả `{ overlaps, counts }` (bố cục chồng lấn: vật trên đường, trong nước, chồng nhau; xe ngoài làn; người đi qua nhà). `'all'` = mọi vật có thể xuất hiện. Kiểm bằng `node scripts/validate-world.mjs`; bản đồ debug ở `world-map.html`, lớp phủ debug trong `world-demo.html` (phím D).
+
+> **Chế độ vùng (v2, mặc định):** xem `ARCHITECTURE_REGIONS.md`. Hợp đồng dưới đây là của chế độ 8 năm (`?mode=classic`).
