@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo giao diện vùng — The Transition</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #e9e1cf; }
+      /* Stand-in for the watercolor diorama: a painted-looking island with soft region blobs. */
+      #world {
+        position: fixed; inset: 0; overflow: hidden;
+        background:
+          radial-gradient(ellipse 70% 60% at 50% 52%, #e8dcbc 0 55%, transparent 75%),
+          linear-gradient(170deg, #b9d0d4 0%, #a9c4c9 60%, #9dbcc2 100%);
+      }
+      #world .blob {
+        position: absolute; width: 30vw; height: 22vw; margin: -11vw 0 0 -15vw; border-radius: 48% 52% 45% 55%;
+        filter: blur(18px); opacity: 0.55; transition: opacity .2s, filter .2s; will-change: transform;
+      }
+      #world .blob.is-hover { opacity: 0.85; filter: blur(10px); }
+      #links { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+      #links path { fill: none; stroke-width: 4; stroke-linecap: round; }
+      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #demo-bar {
+        position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 100;
+        display: flex; gap: 6px; align-items: center; padding: 4px 8px;
+        background: rgba(30, 25, 20, 0.85); color: #f4ecdb; border-radius: 8px 8px 0 0;
+        font: 12px/1.2 'Segoe UI', sans-serif;
+      }
+      #demo-bar button, #demo-bar select { font: inherit; padding: 2px 8px; }
+      #demo-bar.is-hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="world"></div>
+    <svg id="links" aria-hidden="true"></svg>
+    <div id="ui"></div>
+    <div id="demo-bar">
+      <button type="button" data-step="-1" title="[">◀</button>
+      <select id="demo-pick"></select>
+      <button type="button" data-step="1" title="]">▶</button>
+      <span>[ ] đổi màn · K gom 2 nhãn gần nhau · M camera trôi · H ẩn thanh</span>
+    </div>
+    <script type="module">
+      import { createRegionUI } from './src/ui/regions/index.js';
+      import { MOCK_VIEWS, MOCK_LABELS, MOCK_ANCHORS, MOCK_BRIEFING, MOCK_P1, MOCK_P4, MOCK_END } from './src/ui/regions/mock.js';
+
+      const params = new URLSearchParams(location.search);
+      const bar = document.getElementById('demo-bar');
+      const pick = document.getElementById('demo-pick');
+      if (params.get('clean') === '1') bar.classList.add('is-hidden');
+      pick.innerHTML = MOCK_LABELS.map((l, n) => `<option value="${n}">${l}</option>`).join('');
+
+      const COLORS = { CN: '#b98a6a', NN: '#9fbf7a', TT: '#d2b98a', DC: '#d9a58f', VC: '#7fa08a', CB: '#8fb3c4' };
+      const world = document.getElementById('world');
+      const blobs = {};
+      for (const [id, c] of Object.entries(COLORS)) {
+        const b = document.createElement('div');
+        b.className = 'blob'; b.style.background = c; world.appendChild(b); blobs[id] = b;
+      }
+
+      // ---------- fake camera ----------
+      const cam = { s: 1, fx: 0.5, fy: 0.5, ox: 0.5, oy: 0.5, ts: 1, tfx: 0.5, tfy: 0.5, tox: 0.5, toy: 0.5 };
+      let cluster = false, drift = false, selected = null, focusLinks = [];
+      function baseAnchor(id) {
+        const a = MOCK_ANCHORS[id];
+        if (cluster && id === 'DC') return { x: MOCK_ANCHORS.TT.x + 0.03, y: MOCK_ANCHORS.TT.y + 0.02 };
+        return a;
+      }
+      function project(id, t) {
+        const W = innerWidth, H = innerHeight;
+        const a = baseAnchor(id);
+        const dx = drift ? Math.sin(t / 900 + a.x * 9) * 0.01 : 0;
+        const dy = drift ? Math.cos(t / 1100 + a.y * 7) * 0.008 : 0;
+        // Selected region framed left of the panel at (0.3, 0.55).
+        const x = (cam.ox + (a.x + dx - cam.fx) * cam.s) * W;
+        const y = (cam.oy + (a.y + dy - cam.fy) * cam.s) * H;
+        return { x, y, visible: x > -20 && x < W + 20 && y > -20 && y < H + 20 };
+      }
+      let ui;
+      function frame(t) {
+        const k = matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0.12;
+        for (const q of ['s', 'fx', 'fy', 'ox', 'oy']) cam[q] += (cam['t' + q] - cam[q]) * k;
+        const anchors = {};
+        for (const id of Object.keys(MOCK_ANCHORS)) {
+          anchors[id] = project(id, t);
+          blobs[id].style.transform = `translate(${anchors[id].x}px, ${anchors[id].y}px) scale(${cam.s})`;
+        }
+        ui?.setAnchors(anchors);
+        drawLinks(anchors);
+        requestAnimationFrame(frame);
+      }
+      function drawLinks(anchors) {
+        const svg = document.getElementById('links');
+        const col = { risk: '#a3312a', active: '#a3312a', benefit: '#2f6e3c' };
+        svg.innerHTML = focusLinks.map((l) => {
+          const a = anchors[l.from], b = anchors[l.to];
+          if (!a || !b) return '';
+          const mx = (a.x + b.x) / 2, my = Math.min(a.y, b.y) - 60;
+          return `<path d="M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}" stroke="${col[l.kind] ?? '#555'}" ${l.kind === 'risk' ? 'stroke-dasharray="10 8"' : ''}/>`;
+        }).join('');
+      }
+
+      // ---------- fake sim ----------
+      let view = structuredClone(MOCK_VIEWS[Math.min(Number(params.get('i')) || 0, MOCK_VIEWS.length - 1)]);
+      const history = [];
+      function go(v) { history.push(view); view = structuredClone(v); pick.value = String(MOCK_VIEWS.findIndex((m) => m.phase === v.phase && m.period === v.period)); ui.render(view); }
+
+      function onAction(a) {
+        if (a.type === 'start') return go(MOCK_P1);
+        if (a.type === 'restart') return go(MOCK_BRIEFING);
+        if (a.type === 'endPeriod') return go(view.period <= 1 ? MOCK_P4 : MOCK_END);
+        if (a.type === 'choose') {
+          const v = structuredClone(view);
+          const p = v.problems.find((x) => x.instanceId === a.problem);
+          const o = p?.options.find((x) => x.id === a.option);
+          if (!p || !o) throw new Error('invalid action');
+          if (o.disabled || p.chosen) throw new Error('Không thể chọn phương án này');
+          if (o.cost > v.budget) throw new Error('Không đủ ngân sách');
+          v.budget -= o.cost;
+          v.upkeep += o.upkeep; v.incomeNext -= o.upkeep;
+          if (!o.delay && !o.project) {
+            // Immediate: problem closes, region shows a news line.
+            v.problems = v.problems.filter((x) => x !== p);
+            for (const r of v.regions) r.problems = r.problems.filter((id) => id !== p.instanceId);
+            v.news.unshift({ period: v.period, text: `${p.title}: đã chọn “${o.label}”`, tone: 'good', chain: [], region: p.region });
+          } else {
+            p.status = 'working';
+            p.chosen = { option: o.id, label: o.label, period: v.period, completesAt: v.period + Math.max(1, o.delay) };
+            if (o.project) {
+              v.slots.used += 1;
+              v.projects.push({ id: 'j' + Date.now(), key: 'x', label: o.label, region: p.region, startedAt: v.period, doneAt: p.chosen.completesAt, doneText: o.delay > 1 ? `Còn ${o.delay} kỳ` : 'Hoàn tất kỳ tới', done: false });
+            }
+          }
+          history.push(view); view = v; ui.render(view);
+        }
+      }
+
+      ui = createRegionUI(document.getElementById('ui'), {
+        onAction,
+        onSelect(id) {
+          selected = id;
+          if (id) { const a = MOCK_ANCHORS[id]; Object.assign(cam, { ts: 1.8, tfx: a.x, tfy: a.y, tox: 0.3, toy: 0.55 }); }
+          else Object.assign(cam, { ts: 1, tfx: 0.5, tfy: 0.5, tox: 0.5, toy: 0.5 });
+        },
+        onHover(id) { for (const [k, b] of Object.entries(blobs)) b.classList.toggle('is-hover', k === id); },
+        onFocusProblem(p) { focusLinks = p?.links ?? []; window.__lastFocus = p?.instanceId ?? null; },
+        onUndo() { if (history.length) { view = history.pop(); ui.render(view); } },
+      });
+      ui.render(view);
+      pick.value = String(MOCK_VIEWS.indexOf(MOCK_VIEWS.find((m) => m.phase === view.phase && m.period === view.period)));
+      requestAnimationFrame(frame);
+
+      // ---------- demo controls ----------
+      const jump = (n) => { const i = (n + MOCK_VIEWS.length) % MOCK_VIEWS.length; view = structuredClone(MOCK_VIEWS[i]); pick.value = String(i); ui.render(view); };
+      pick.addEventListener('change', () => jump(Number(pick.value)));
+      bar.addEventListener('click', (e) => { const b = e.target.closest('[data-step]'); if (b) { jump(Number(pick.value) + Number(b.dataset.step)); b.blur(); } });
+      addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === '[') jump(Number(pick.value) - 1);
+        else if (e.key === ']') jump(Number(pick.value) + 1);
+        else if (e.key === 'k' || e.key === 'K') cluster = !cluster;
+        else if (e.key === 'm' || e.key === 'M') drift = !drift;
+        else if (e.key === 'h' || e.key === 'H') bar.classList.toggle('is-hidden');
+      });
+      // World stand-in: clicking empty map picks the nearest region (like world:pick).
+      world.addEventListener('click', (e) => {
+        let best = null, bd = Infinity;
+        for (const id of Object.keys(MOCK_ANCHORS)) {
+          const a = project(id, performance.now());
+          const d = Math.hypot(a.x - e.clientX, a.y - e.clientY);
+          if (d < bd) { bd = d; best = id; }
+        }
+        ui.select(bd < 160 ? best : null);
+      });
+      window.__demo = { ui, get view() { return view; }, jump, setCluster: (v) => { cluster = v; }, setDrift: (v) => { drift = v; } };
+    </script>
+  </body>
+</html>
