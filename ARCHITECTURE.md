@@ -108,3 +108,7 @@ Không dùng quốc kỳ, biểu tượng, lãnh đạo thật. Icon nhóm xã h
 - `end` có thêm `ending.progress[]`, `ending.challenges[]`, `ending.whatIf`, `timeline[]` (chỉ số cuối mỗi năm, năm 0 = khởi điểm).
 - `createGame({ seed, randomEvents, bus, emit })`: `emit:false` cho chạy headless. `game.sync()` phát lại `sim:view`/`sim:state` (dùng sau khi đăng ký listener). `game.canUndo`.
 - Số khởi điểm đã chỉnh qua playtest (`src/data/config.js`): `BUDGET=0`, thu cơ sở `8`/năm (GDD: 60 và 12 làm ngân sách không bao giờ ràng buộc).
+
+### Từ Diorama (bổ sung, không phá hợp đồng)
+- `world.resetView()`: đưa camera về khung hình của địa điểm hiện tại. Người xem có thể kéo (chuột trái / chạm) để lia, lăn chuột / chụm hai ngón để thu phóng, kéo chuột phải để xoay nhẹ, nhấp đúp để về khung hình. `focus()` sang địa điểm mới sẽ lấy lại camera; `focus()` cùng địa điểm giữ nguyên góc nhìn người xem chọn. Diorama không nghe phím nào.
+- `world.validateLayout(state?)` trả `{ overlaps, counts }` (bố cục chồng lấn: vật trên đường, trong nước, chồng nhau; xe ngoài làn; người đi qua nhà). `'all'` = mọi vật có thể xuất hiện. Kiểm bằng `node scripts/validate-world.mjs`; bản đồ debug ở `world-map.html`, lớp phủ debug trong `world-demo.html` (phím D).

@@ -60,6 +60,7 @@ export function createSharedUniforms() {
     uHaze: { value: vec3(PAL.haze) },
     uCamDist: { value: 100 },
     uPitch: { value: THREE.MathUtils.degToRad(52) },
+    uYaw: { value: 0 },
   };
 }
 

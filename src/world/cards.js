@@ -14,6 +14,7 @@ attribute vec4 aA; // grow, sway, glow channel, plant
 attribute vec4 aB; // bob, seed, shadow scale, -
 uniform float uTime;
 uniform float uPitch;
+uniform float uYaw;
 uniform vec4 uGlow;
 varying vec2 vUv;
 varying vec2 vQ;
@@ -24,10 +25,13 @@ varying vec3 vW;
 void main() {
   vec2 q = position.xy;
   float g = aA.x;
-  vec3 up = vec3(0.0, cos(uPitch), -sin(uPitch));
+  // Face the camera: fixed pitch plus the viewer's small yaw.
+  float cy = cos(uYaw), sy = sin(uYaw);
+  vec3 right = vec3(cy, 0.0, -sy);
+  vec3 up = vec3(-sy * sin(uPitch), cos(uPitch), -cy * sin(uPitch));
   float sway = aA.y * q.y * q.y * (sin(uTime * 1.3 + aPos.x * 0.21 + aPos.z * 0.13) + 0.5 * sin(uTime * 2.1 + aPos.x * 0.5));
   float bob = aB.x * abs(sin(uTime * 7.0 + aB.y * 6.2831)) * 0.14;
-  vec3 wp = aPos + vec3(q.x * aSize.x * g + sway, 0.0, 0.0) + up * (q.y * aSize.y * g + bob);
+  vec3 wp = aPos + right * (q.x * aSize.x * g + sway) + up * (q.y * aSize.y * g + bob);
   vUv = mix(aUv.xy, aUv.zw, vec2(q.x + 0.5, q.y));
   vQ = q;
   float ch = aA.z;
@@ -209,10 +213,11 @@ export class CardLayer {
   }
 
   // World position of a point on a card given in sprite units (u from center, v up from base).
-  anchor(i, u, v, pitch) {
+  anchor(i, u, v, pitch, yaw = 0, out = new THREE.Vector3()) {
     const it = this.items[i];
-    const sx = it.flip ? -1 : 1;
-    return new THREE.Vector3(it.x + u * it.s * sx, it.y + v * it.s * Math.cos(pitch), it.z - v * it.s * Math.sin(pitch));
+    const a = u * it.s * (it.flip ? -1 : 1), b = v * it.s;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), sp = Math.sin(pitch);
+    return out.set(it.x + a * cy - b * sy * sp, it.y + b * Math.cos(pitch), it.z - a * sy - b * cy * sp);
   }
 
   // Animate visibility. instant skips the tween; delay staggers pops.

@@ -1,6 +1,6 @@
 // Standalone playground for the diorama (world-demo.html).
 // Keys: ←/→ cycle sites, 0-9 jump to site, G/B/N pulse good/bad/neutral,
-// Q toggle quality, H hide panel, R random state.
+// Q toggle quality, H hide panel, R random state, D layout debug overlay (+ validation in console).
 import { createDiorama, SITE_IDS } from './index.js';
 
 const canvas = document.getElementById('world');
@@ -23,7 +23,7 @@ panel.innerHTML = `
     <button data-pulse="good">Pulse tốt (G)</button><button data-pulse="bad">Pulse xấu (B)</button><button data-pulse="neutral">Trung tính (N)</button>
   </div>
   <div><button id="q">Chất lượng: …</button><button id="rand">Ngẫu nhiên (R)</button><button id="lo">Tất cả thấp</button><button id="hi">Tất cả cao</button></div>
-  <div class="hint">←/→ đổi địa điểm · 0–9 nhảy · H ẩn bảng</div>`;
+  <div class="hint">←/→ đổi địa điểm · 0–9 nhảy · H ẩn bảng · D lưới bố cục</div>`;
 
 const sitesEl = panel.querySelector('#sites');
 SITE_IDS.forEach((id, i) => {
@@ -107,9 +107,20 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'q') { world.setQuality(world.quality === 'low' ? 'high' : 'low'); showQ(); }
   else if (e.key === 'h') panel.classList.toggle('hidden');
   else if (e.key === 'r') randomize();
+  else if (e.key === 'd') toggleLayout();
   else return;
   e.preventDefault();
 });
+
+let layoutOn = false;
+function toggleLayout() {
+  layoutOn = world.debug.showLayout(!layoutOn);
+  if (layoutOn) {
+    const all = world.validateLayout('all');
+    const now = world.validateLayout();
+    console.info(`[layout] ${all.overlaps.length} overlaps over every prop that can appear, ${now.overlaps.length} in the current state`, all.overlaps);
+  }
+}
 
 // Deep link: ?site=valley
 const qs = new URLSearchParams(location.search);
