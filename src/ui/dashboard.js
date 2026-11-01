@@ -21,7 +21,7 @@ export function createDashboard(topEl, dashEl, ctx) {
     </div>
     <div class="tt-top-row tt-res-row">
       ${RESOURCES.map((r) => `
-        <div class="tt-res" data-res="${r.key}" title="${r.name}">
+        <div class="tt-res" data-res="${r.key}" data-pop="res:${r.key}" title="${r.name} — bấm để xem chi tiết">
           ${glyph(RES_GLYPH[r.key])}
           <span class="tt-res-name">${r.name}</span>
           <span class="tt-res-val" data-val>–</span>
@@ -34,7 +34,7 @@ export function createDashboard(topEl, dashEl, ctx) {
     <div class="tt-warning" hidden>${glyph('warning')}<span data-warning></span></div>
     <div class="tt-metrics">
       ${METRICS.map((m) => `
-        <div class="tt-metric" data-m="${m.key}" style="--mc:${m.color}">
+        <div class="tt-metric" data-m="${m.key}" data-pop="metric:${m.key}" style="--mc:${m.color}" title="${m.name} — bấm để xem chi tiết">
           <div class="tt-m-head">
             <span class="tt-m-name">${m.name}</span>
             <span class="tt-m-val" data-val>–</span>

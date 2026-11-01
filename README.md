@@ -14,6 +14,10 @@ Game mô phỏng điều hành 8 năm cho môn MLN131 — Chủ nghĩa xã hội
 | `F` | Toàn màn hình |
 | `R` | Bật/tắt biến cố ngẫu nhiên |
 | `Ctrl+Z` | Hoàn tác (chỉ khi mở với `?test=1`) |
+| `L` | Đặt lại bố cục cửa sổ |
+| `Esc` | Đóng bảng chi tiết |
+
+Chuột: kéo thanh tiêu đề để di chuyển thẻ / bảng chỉ số / báo cáo, kéo mép hoặc góc để đổi cỡ, nút – để thu gọn (vị trí được nhớ trên máy). Bấm vào một chỉ số, tài nguyên, di sản chính sách hay nhóm xã hội để xem giải thích, diễn biến và quyết định tác động. Ở báo cáo cuối: rê/bấm một năm trên biểu đồ để xem số liệu, bấm chú giải để ẩn/hiện đường (bấm đúp: chỉ xem một đường).
 
 Tham số URL: `?seed=2026` (cùng seed → cùng biến cố, để 2 lớp so sánh), `?random=0` (tắt biến cố ngẫu nhiên), `?test=1`.
 

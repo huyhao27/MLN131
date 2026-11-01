@@ -79,7 +79,7 @@ export function deltaChips(deltas = {}, resourceDeltas = {}, { big = false } = {
   for (const m of METRICS) {
     const d = Number(deltas?.[m.key]);
     if (!d) continue;
-    chips.push(`<span class="tt-delta ${d > 0 ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++};--mc:${m.color}" title="${esc(m.name)}">
+    chips.push(`<span class="tt-delta ${d > 0 ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++};--mc:${m.color}" title="${esc(m.name)}" data-pop="metric:${m.key}">
       <span class="tt-delta-name">${esc(m.short)}</span>
       <span class="tt-delta-num">${glyph(d > 0 ? 'up' : 'down')}${signed(d)}</span></span>`);
   }
@@ -87,7 +87,7 @@ export function deltaChips(deltas = {}, resourceDeltas = {}, { big = false } = {
     const d = Number(resourceDeltas?.[r.key]);
     if (!d) continue;
     const good = r.bad ? d < 0 : d > 0;
-    chips.push(`<span class="tt-delta is-res ${good ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++}">
+    chips.push(`<span class="tt-delta is-res ${good ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++}" data-pop="res:${r.key}">
       <span class="tt-delta-name">${esc(r.name)}</span><span class="tt-delta-num">${signed(d)}</span></span>`);
   }
   // Unknown keys (future metrics) still show up rather than vanish silently.
@@ -103,7 +103,7 @@ function flagChips(list) {
   return `<section class="tt-sec"><h3 class="tt-h3">Di sản chính sách</h3><div class="tt-flags">
     ${list.map((f) => {
       const info = flagInfo(f);
-      return `<span class="tt-flag is-${info.tone}${info.removed ? ' is-removed' : ''}" title="${esc(info.id)}">${glyph('flag')}${info.removed ? 'Gỡ bỏ: ' : ''}${esc(info.label)}</span>`;
+      return `<span class="tt-flag is-${info.tone}${info.removed ? ' is-removed' : ''}" title="${esc(info.desc || info.id)}" data-pop="flag:${esc(info.id)}">${glyph('flag')}${info.removed ? 'Gỡ bỏ: ' : ''}${esc(info.label)}</span>`;
     }).join('')}</div></section>`;
 }
 
@@ -149,7 +149,7 @@ const RENDERERS = {
   briefing(view, ctx) {
     const keys = [
       ['1 – 4', 'Chọn phương án'], ['Enter', 'Tiếp tục'], ['P', 'Chế độ trình chiếu'],
-      ['S', 'Bỏ qua hoạt ảnh'], ['F', 'Toàn màn hình'], ['↑ ↓', 'Cuộn nội dung'],
+      ['S', 'Bỏ qua hoạt ảnh'], ['F', 'Toàn màn hình'], ['↑ ↓', 'Cuộn nội dung'], ['L', 'Đặt lại bố cục'],
     ];
     if (ctx.canToggleRandom) keys.push(['R', 'Bật/tắt biến cố ngẫu nhiên']);
     return card(view, `
