@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MLN131</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #1e333a; }
+      #game { display: block; width: 100%; height: 100%; touch-action: none; }
+      #debug {
+        position: fixed; top: 8px; left: 8px; padding: 6px 10px;
+        font: 12px/1.4 ui-monospace, monospace; color: #efe9d6;
+        background: rgba(21, 32, 28, 0.6); border-radius: 4px; pointer-events: none;
+        white-space: pre;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="debug"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
