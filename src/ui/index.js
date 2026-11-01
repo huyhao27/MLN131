@@ -3,7 +3,10 @@
 import './ui.css';
 import { createDashboard } from './dashboard.js';
 import { renderCard } from './cards.js';
-import { renderEnd } from './endScreen.js';
+import { renderEnd, wireEnd } from './endScreen.js';
+import { createWindowManager } from './windows.js';
+import { createTracker, createPopover } from './popover.js';
+import { PHASE_TAGS } from './labels.js';
 import { storageGet, storageSet } from './util.js';
 
 const INPUT_GUARD_MS = 380; // ignore keys right after a new card appears (double-press safety)
@@ -26,16 +29,23 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
     <div class="tt-ui">
       <header class="tt-top"></header>
       <section class="tt-dash" aria-label="Bảng chỉ số"></section>
-      <aside class="tt-panel" aria-live="polite"></aside>
-      <section class="tt-end"></section>
+      <aside class="tt-panel"></aside>
+      <section class="tt-end" aria-label="Báo cáo tổng kết"></section>
       <div class="tt-toasts" aria-live="polite"></div>
     </div>`;
   const ui = rootEl.querySelector('.tt-ui');
-  const panel = ui.querySelector('.tt-panel');
-  const endEl = ui.querySelector('.tt-end');
   const toasts = ui.querySelector('.tt-toasts');
 
-  const dash = createDashboard(ui.querySelector('.tt-top'), ui.querySelector('.tt-dash'), { skip: () => st.skip });
+  // Card, dashboard and end report are movable/resizable/collapsible windows.
+  const wm = createWindowManager(ui);
+  const panel = wm.register(ui.querySelector('.tt-panel'), { id: 'card', title: 'Tình huống', minW: 20, minH: 12 }).body;
+  const dashBody = wm.register(ui.querySelector('.tt-dash'), { id: 'dash', title: 'Bảng chỉ số', minW: 22, minH: 6 }).body;
+  const endEl = wm.register(ui.querySelector('.tt-end'), { id: 'end', title: 'Báo cáo tổng kết', minW: 30, minH: 14 }).body;
+  panel.setAttribute('aria-live', 'polite');
+
+  const dash = createDashboard(ui.querySelector('.tt-top'), dashBody, { skip: () => st.skip });
+  const tracker = createTracker();
+  const pop = createPopover(ui, { tracker, getView: () => st.view });
 
   function applyModes() {
     ui.classList.toggle('tt-presenter', st.presenter);
@@ -69,6 +79,7 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       return;
     }
     st.acting = true;
+    pop.close();
     const btn = activeEl().querySelector(`[data-opt="${CSS.escape(opt.id)}"]`);
     btn?.classList.add('is-picked');
     // Release the lock even if the integrator never calls render() back.
@@ -94,21 +105,33 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       || prev.options?.map((o) => o.id).join() !== view.options?.map((o) => o.id).join();
 
     ui.dataset.phase = view.phase;
+    const wasEnd = ui.classList.contains('is-end');
     ui.classList.toggle('is-end', isEnd);
+    tracker.see(view);
     dash.update(view);
     applyModes();
+    wm.setTitle('card', [view.year && view.phase !== 'briefing' ? `Năm ${view.year}` : '', PHASE_TAGS[view.phase] ?? view.phase, view.code]
+      .filter(Boolean).join(' · '));
 
     if (isEnd) {
-      endEl.innerHTML = renderEnd(view);
+      if (changed || !endEl.firstElementChild) {
+        endEl.innerHTML = renderEnd(view);
+        wireEnd(endEl, view);
+      }
       panel.innerHTML = '';
+      if (!wasEnd) wm.refresh('end');
     } else {
       endEl.innerHTML = '';
       const scrollTop = changed ? 0 : panel.querySelector('[data-scroll]')?.scrollTop ?? 0;
       panel.innerHTML = renderCard(view, { canToggleRandom: typeof onToggleRandom === 'function' });
       const sc = panel.querySelector('[data-scroll]');
       if (sc) sc.scrollTop = scrollTop;
+      if (wasEnd) wm.refresh('card');
     }
+    pop.refresh();
     if (changed) {
+      // A new card should be seen even if the presenter had collapsed its window.
+      wm.expand(isEnd ? 'end' : 'card');
       st.shownAt = performance.now();
       const card = activeEl().firstElementChild;
       card?.classList.add('is-enter');
@@ -149,6 +172,16 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    if (k === 'Escape') {
+      if (pop.close()) e.preventDefault();
+      return;
+    }
+    if (lower === 'l') {
+      wm.resetAll(); pop.close();
+      toast('Đã đặt lại bố cục');
+      e.preventDefault(); return;
+    }
 
     if (lower === 'p') {
       st.presenter = !st.presenter; storageSet('tt.presenter', st.presenter ? '1' : '0');
@@ -195,6 +228,9 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
   window.addEventListener('keydown', onKey);
 
   ui.addEventListener('click', (e) => {
+    if (wm.suppressClick()) return; // release of a window drag/resize
+    const popEl = e.target.closest('[data-pop]');
+    if (popEl && !popEl.closest('.tt-pop')) { pop.open(popEl); return; }
     const btn = e.target.closest('[data-opt], [data-action]');
     if (!btn) return;
     btn.blur();

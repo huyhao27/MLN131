@@ -52,5 +52,5 @@ export function stakeholderIcon(id) {
 export function stakeholderBadge(id, extraCls = '') {
   const key = typeof id === 'string' ? id : id?.id;
   const label = esc(STAKEHOLDERS[key] ?? key ?? '');
-  return `<span class="tt-sh ${extraCls}" data-sh="${esc(key)}" title="${label}"><span class="tt-sh-icon">${stakeholderIcon(key)}</span><span class="tt-sh-label">${label}</span></span>`;
+  return `<span class="tt-sh ${extraCls}" data-sh="${esc(key)}" data-pop="sh:${esc(key)}" title="${label}"><span class="tt-sh-icon">${stakeholderIcon(key)}</span><span class="tt-sh-label">${label}</span></span>`;
 }
