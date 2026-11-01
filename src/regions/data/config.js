@@ -52,7 +52,7 @@ export const BASE_PARAMS = {
   roadNNCB: 24, roadNNDC: 16, bridge: 1, roadTTVC: 10, vcTrips: 6, vcService: 0,
   // people
   commuteCap: 32, commuters: 26,
-  housingCap: 100, housingNeed: 92,
+  housingCap: 96, housingNeed: 90,
   careCap: 30, careNeed: 27,
   healthCap: 40, healthNeed: 34,
   food: 22, foodNeed: 20,

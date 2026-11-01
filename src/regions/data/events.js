@@ -7,7 +7,7 @@
 // affects[], links[], onOpen[ops], options[], wait (preview), onExpire[ops], closeWhen(c), learn.
 // Option fields: id, label, cost, upkeep {v, n}, delay (0 = now), project (slot + build key),
 // preview, requires {if(c), reason}, now[ops], done[ops], close ('done' default | 'when').
-import { mod, mul, until, untag, delta, pot, res, cash, build, news, flag, when, later } from './ops.js';
+import { mod, mul, until, untag, delta, pot, lowerTo, cash, build, news, flag, when, later } from './ops.js';
 
 const L = (from, to, service, kind, label) => ({ from, to, service, kind, label });
 
@@ -17,10 +17,10 @@ export const EVENTS = [
     id: 'RV01', region: 'VC', family: 'water_supply', origin: 'random', severity: 2, weight: 4, topic: 'alliance',
     title: 'Hồ xuống thấp',
     text: 'Mùa khô kéo dài, mực nước hồ Bản Mây hạ rõ. Nước dự trữ chỉ đáp ứng hạn chế trong kỳ tới.',
-    eligible: (c) => c.period >= 2 && c.s.reservoir >= 45,
+    eligible: (c) => c.period >= 2 && c.s.reservoir >= 50,
     deadline: 1, affects: ['VC', 'NN', 'CN'],
     links: [L('VC', 'NN', 'water', 'risk', 'Nước tưới'), L('VC', 'CN', 'power', 'risk', 'Điện thủy điện')],
-    onOpen: [res('reservoir', -38), flag('dry', 1)],
+    onOpen: [lowerTo('reservoir', 34), flag('dry', 2)],
     options: [
       { id: 'A', label: 'Ưu tiên nước tưới', cost: 3, delay: 0,
         preview: 'Giữ vụ mùa ở Đồng bằng; thủy điện giảm, Thiên Hà có thể thiếu điện một kỳ.',
@@ -33,7 +33,7 @@ export const EVENTS = [
         now: [mul('wDem.NN', 0.85, 1), mul('wDem.DC', 0.85, 1), mul('pwDem.CN', 0.85, 1), mod('waterExtra', 6, 1),
           delta('CN', 'output', -3), delta('NN', 'output', -2), delta('DC', 'wellbeing', -2), delta('TT', 'access', -1)], close: 'when' },
     ],
-    wait: 'Kỳ này Đồng bằng thiếu nước tưới; nếu hồ chưa hồi, Thiên Hà có thể thiếu điện.',
+    wait: 'Hai kỳ tới Đồng bằng thiếu nước tưới; nếu hồ chưa hồi, Thiên Hà có thể thiếu điện.',
     closeWhen: (c) => c.s.reservoir >= 50,
     learn: { note: 'Một nguồn lực chung (nước, điện) phục vụ cả nông nghiệp lẫn công nghiệp: phân bổ là quyết định về lợi ích của nhiều nhóm, cần phối hợp thay vì để vùng này gánh hết.' },
   },
@@ -170,7 +170,7 @@ export const EVENTS = [
         now: [mod('pwDem.CN', 3, 2), mod('commuters', 3, 2), mod('cnExport', 4, 2), delta('CN', 'output', 3), later(1, [cash(5)])] },
       { id: 'B', label: 'Nhận đủ và thuê năng lực bổ sung', cost: 4, delay: 0,
         preview: 'Lợi nhuận cao; cần đủ điện, bến và chỗ ở cho người làm thêm.',
-        now: [mod('pwDem.CN', 7, 2, { src: 'Đơn hàng lớn' }), mod('commuters', 8, 3, { src: 'Đơn hàng lớn' }), mod('housingNeed', 9, 3, { src: 'Đơn hàng lớn' }),
+        now: [mod('pwDem.CN', 7, 2, { src: 'Đơn hàng lớn' }), mod('commuters', 8, 3, { src: 'Đơn hàng lớn' }), mod('housingNeed', 14, 3, { src: 'Đơn hàng lớn' }),
           mod('cnExport', 10, 2, { src: 'Đơn hàng lớn' }), delta('CN', 'output', 6), later(1, [cash(11)])] },
       { id: 'C', label: 'Thương lượng dời kỳ giao', cost: 0, delay: 1,
         preview: 'Lợi nhuận thấp hơn nhưng có một kỳ chuẩn bị.',
@@ -304,7 +304,7 @@ export const EVENTS = [
     eligible: (c) => c.ratio('DC', 'care') <= 1.15,
     deadline: 2, affects: ['DC', 'CN', 'TT'],
     links: [L('DC', 'CN', 'labor', 'risk', 'Người lao động phải nghỉ'), L('TT', 'DC', 'health', 'risk', 'Nhân viên dịch vụ')],
-    onOpen: [mod('careNeed', 5, 4, { src: 'Nhà trẻ hết chỗ' })],
+    onOpen: [mod('careNeed', 7, 4, { src: 'Nhà trẻ hết chỗ' })],
     options: [
       { id: 'A', label: 'Mở thêm lớp ở cơ sở đủ điều kiện', cost: 5, delay: 1,
         preview: 'Kỳ tới có thêm chỗ.',

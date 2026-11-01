@@ -204,6 +204,7 @@ export function applyOps(s, ops = [], src = {}) {
   for (const op of ops) {
     switch (op.t) {
       case 'mod':
+        if (op.op !== 'add' && op.op !== 'mul') throw new Error(`bad mod op ${JSON.stringify(op)}`);
         s.mods.push({
           key: op.key, op: op.op, v: op.v, from: s.period, until: s.period + op.n - 1,
           tag: op.tag || null, src: op.src || src.title || null, problem: src.problem ?? null, depth: src.depth ?? 0,
@@ -224,8 +225,9 @@ export function applyOps(s, ops = [], src = {}) {
       }
       case 'res':
         if (op.key === 'reservoir') {
-          s.reservoir = clamp(s.reservoir + op.v, 0, CONFIG.reservoir.max);
-          if (op.v < 0) s.reservoirCause = { title: src.title, problem: src.problem, depth: src.depth ?? 0 };
+          const before = s.reservoir;
+          s.reservoir = clamp(op.cap ? Math.min(s.reservoir, op.v) : s.reservoir + op.v, 0, CONFIG.reservoir.max);
+          if (s.reservoir < before) s.reservoirCause = { title: src.title, problem: src.problem, depth: src.depth ?? 0 };
         } else if (op.key === 'stock') s.stock = Math.max(0, s.stock + op.v);
         break;
       case 'cash':
