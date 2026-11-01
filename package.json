@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "sim": "node scripts/boundaries.mjs && node scripts/simulate.mjs",
     "test:sim": "node scripts/boundaries.mjs",
-    "exhaustive": "node scripts/exhaustive.mjs"
+    "exhaustive": "node scripts/exhaustive.mjs",
+    "sim:regions": "node scripts/regions-sim.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"
