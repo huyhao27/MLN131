@@ -4,6 +4,7 @@
 import { bus as coreBus } from '../core/bus.js';
 import { CONFIG, REGION_ORDER, INDICATORS } from './data/config.js';
 import { REGIONS, BUILT, TOPICS, serviceLabel } from './data/regions.js';
+import { SHORT_TITLES } from './data/events.js';
 import {
   initialState, beginPeriod, endPeriod, choose, optionStates, computeServices, params, context,
   income, upkeepNow, slotsUsed, national, regionStatus, regionScore, isOpen, EVENT_BY_ID,
@@ -44,6 +45,7 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
       originLabel: ORIGIN_LABEL[p.origin],
       region: p.region,
       title: def.title,
+      short: SHORT_TITLES[p.rootId] || def.title,
       text: def.text,
       severity: p.severity,
       status: p.status,
@@ -162,9 +164,9 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
       .map((k) => `${label[k]} ${d[k] > 0 ? '+' : ''}${d[k]}`).join(', ');
     const builtIn = (r) => s.built.filter((k) => BUILT[k]?.region === r).map((k) => BUILT[k].label.toLowerCase());
     const improved = diffs.filter((x) => x.total >= 6).sort((a, b) => b.total - a.total)
-      .map((x) => ({ region: x.r, text: `${REGIONS[x.r].short}: ${describe(x.d)}${builtIn(x.r).length ? ` · có ${builtIn(x.r).join(', ')}` : ''}` }));
+      .map((x) => ({ region: x.r, text: `${describe(x.d)}${builtIn(x.r).length ? ` · có ${builtIn(x.r).join(', ')}` : ''}` }));
     const leftBehind = diffs.filter((x) => x.total <= -4 || x.score < 40).sort((a, b) => a.total - b.total)
-      .map((x) => ({ region: x.r, text: `${REGIONS[x.r].short}: ${describe(x.d) || 'không cải thiện'}${x.score < 40 ? ' · vẫn ở mức thấp' : ''}` }));
+      .map((x) => ({ region: x.r, text: `${describe(x.d) || 'không cải thiện'}${x.score < 40 ? ' · vẫn ở mức thấp' : ''}` }));
 
     // Memorable chains: roots whose decisions led to consequences elsewhere, most steps first.
     const byParent = {};
@@ -189,8 +191,8 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
     });
 
     let headline, text;
-    const best = improved[0]?.text.split(':')[0];
-    const worst = leftBehind[0]?.text.split(':')[0];
+    const best = improved[0] && REGIONS[improved[0].region].short;
+    const worst = leftBehind[0] && REGIONS[leftBehind[0].region].short;
     const start = nationalOf(s.before);
     const gain = nat.overall - start.overall;
     const lowest = Math.min(...REGION_ORDER.map((r) => regionScore(after[r])));

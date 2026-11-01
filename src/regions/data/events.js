@@ -768,3 +768,14 @@ export const DIRECT_CONSEQUENCES = {
 
 // Period 1 (doc 05 §7): one mild problem and one opportunity, as a guided start.
 export const OPENING = { mild: ['RV15', 'RV13', 'RV09'], opportunity: ['RV18', 'RV07', 'RV17'] };
+
+// Short labels for map pins (doc 05 §9: short label + deadline on the map).
+export const SHORT_TITLES = {
+  RV01: 'Hồ xuống thấp', RV05: 'Kho đã đầy', RV07: 'Đơn hàng lớn', RV09: 'Sâu bệnh', RV11: 'Máy mới chưa ai vận hành',
+  RV12: 'Giá thuê nhà tăng', RV14: 'Bệnh viện đông', RV15: 'Xe đi ca quá tải', RV16: 'Lịch ca ở cảng',
+  RV18: 'Phiên chợ cuối tuần', RV19: 'Khóa học nghề mới', RV20: 'Đề nghị kho lạnh', RV21: 'Nhiệt thải nhà máy',
+  RV22: 'Khu đất trống', RV23: 'Thiết bị chưa dùng được', RV24: 'Bán hàng trực tuyến', RV25: 'Đề nghị thương lượng',
+  RV26: 'Đường lên bản cần tham vấn', RV27: 'Hồ sơ cơ sở tín ngưỡng', RV28: 'Tin sai lẫn phản ánh đúng',
+  H11: 'Mất điện luân phiên', H15: 'Mất điện theo giờ', H16: 'Cảng thiếu điện', H04: 'Thiếu chỗ ở', H06: 'Thiếu linh kiện',
+  H07: 'Thiếu chỗ gửi trẻ', H09: 'Bản Mây bị cách trở', H14: 'Bất bình lan sang bến',
+};

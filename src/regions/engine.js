@@ -195,7 +195,9 @@ export function context(s, extra = {}) {
 
 // ------------------------------------------------------------------ ops
 
+// News carry their region separately (the UI shows it), so texts start with the event itself.
 function pushNews(s, text, tone = 'neutral', extra = {}) {
+  text = text.charAt(0).toUpperCase() + text.slice(1);
   s.news.push({ period: s.period, text, tone, ...extra });
 }
 
@@ -298,7 +300,7 @@ export function openProblem(s, def, { region, depth = 0, parent = null, causes =
   s.regions[p.region].lastEvent = s.period;
   const tone = p.origin === 'opportunity' ? 'good' : p.origin === 'consequence' ? 'bad' : 'neutral';
   const chain = p.causes.length ? [...p.causes, def.title] : null;
-  pushNews(s, chain ? `Vì ${chain.join(' → ')}` : `${REGIONS[p.region].short}: ${def.title}`, tone, { region: p.region, chain, problem: p.instanceId });
+  pushNews(s, chain ? `Vì ${chain.join(' → ')}` : `${def.title}`, tone, { region: p.region, chain, problem: p.instanceId });
   applyOps(s, def.onOpen, { title: def.title, problem: p.instanceId, depth, region: p.region });
   return p;
 }
@@ -366,7 +368,7 @@ function completeChoice(s, p) {
   for (const j of s.projects) if (j.problem === p.instanceId && !j.done) j.done = true;
   p.chosen.completed = true;
   if (p.chosen.close === 'done') {
-    closeProblem(s, p, 'resolved', p.chosen.completesAt > p.chosen.period ? `${REGIONS[p.region].short}: ${o.label.toLowerCase()} đã có tác dụng` : null);
+    closeProblem(s, p, 'resolved', p.chosen.completesAt > p.chosen.period ? `${o.label.toLowerCase()} đã có tác dụng` : null);
   }
 }
 
@@ -444,13 +446,13 @@ export function endPeriod(s) {
   for (const p of s.problems.filter((x) => isOpen(x) && !x.chosen && x.deadline === s.period)) {
     const def = EVENT_BY_ID[p.rootId];
     applyOps(s, def.onExpire, { title: def.title, problem: p.instanceId, depth: p.depth, region: p.region });
-    if (p.origin === 'opportunity') closeProblem(s, p, 'expired', `${REGIONS[p.region].short}: cơ hội "${def.title}" đã qua`, 'neutral');
+    if (p.origin === 'opportunity') closeProblem(s, p, 'expired', `cơ hội "${def.title}" đã qua`, 'neutral');
     else if (def.closeWhen || def.service) {
       p.status = 'escalated';
       p.severity = Math.min(3, p.severity + 1);
       p.deadline = null;
-      pushNews(s, `${REGIONS[p.region].short}: "${def.title}" chưa được xử lý, tình hình xấu đi`, 'bad', { region: p.region, problem: p.instanceId });
-    } else closeProblem(s, p, 'expired', `${REGIONS[p.region].short}: "${def.title}" qua hạn, thiệt hại đã ghi nhận`, 'bad');
+      pushNews(s, `"${def.title}" chưa được xử lý, tình hình xấu đi`, 'bad', { region: p.region, problem: p.instanceId });
+    } else closeProblem(s, p, 'expired', `"${def.title}" qua hạn, thiệt hại đã ghi nhận`, 'bad');
   }
 
   s.budget += income(s) - upkeepNow(s);
@@ -484,12 +486,12 @@ export function beginPeriod(s) {
   for (const p of s.problems.filter(isOpen)) {
     const def = EVENT_BY_ID[p.rootId];
     if (def.service) {
-      if (!c.short(p.region, def.service)) closeProblem(s, p, p.chosen ? 'resolved' : 'recovered', `${REGIONS[p.region].short}: ${serviceLabel(def.service, p.region).toLowerCase()} đã đủ trở lại`);
+      if (!c.short(p.region, def.service)) closeProblem(s, p, p.chosen ? 'resolved' : 'recovered', `${serviceLabel(def.service, p.region).toLowerCase()} đã đủ trở lại`);
       else if (p.chosen && p.chosen.completed && s.period > p.chosen.until) reopen(s, p);
       continue;
     }
     if (def.closeWhen && def.closeWhen({ ...c, p })) {
-      closeProblem(s, p, p.chosen ? 'resolved' : 'recovered', `${REGIONS[p.region].short}: "${def.title}" đã ổn định`);
+      closeProblem(s, p, p.chosen ? 'resolved' : 'recovered', `"${def.title}" đã ổn định`);
       continue;
     }
     if (p.status === 'working' && p.chosen.completed && p.chosen.close === 'when' && s.period > p.chosen.until) reopen(s, p);
@@ -527,7 +529,7 @@ function reopen(s, p) {
   p.status = 'open';
   p.chosen = null;
   p.deadline = s.period + (def.deadline || 2) - 1;
-  pushNews(s, `${REGIONS[p.region].short}: giải pháp tạm cho "${def.title}" đã hết tác dụng`, 'bad', { region: p.region, problem: p.instanceId });
+  pushNews(s, `giải pháp tạm cho "${def.title}" đã hết tác dụng`, 'bad', { region: p.region, problem: p.instanceId });
 }
 
 // Keys whose change makes a service worse: + on need keys, − on have keys.
