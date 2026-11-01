@@ -79,15 +79,15 @@ export function deltaChips(deltas = {}, resourceDeltas = {}, { big = false } = {
   for (const m of METRICS) {
     const d = Number(deltas?.[m.key]);
     if (!d) continue;
-    chips.push(`<span class="tt-delta ${d > 0 ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++};--mc:${m.color}">
-      <span class="tt-delta-name">${esc(big ? m.name : m.short)}</span>
+    chips.push(`<span class="tt-delta ${d > 0 ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++};--mc:${m.color}" title="${esc(m.name)}">
+      <span class="tt-delta-name">${esc(m.short)}</span>
       <span class="tt-delta-num">${glyph(d > 0 ? 'up' : 'down')}${signed(d)}</span></span>`);
   }
   for (const r of RESOURCES) {
     const d = Number(resourceDeltas?.[r.key]);
     if (!d) continue;
     const good = r.bad ? d < 0 : d > 0;
-    chips.push(`<span class="tt-delta is-res ${good ? 'is-good' : 'is-bad'} tt-reveal" style="--i:${i++}">
+    chips.push(`<span class="tt-delta is-res ${good ? 'is-good' : 'is-bad'}${big ? ' is-big' : ''} tt-reveal" style="--i:${i++}">
       <span class="tt-delta-name">${esc(r.name)}</span><span class="tt-delta-num">${signed(d)}</span></span>`);
   }
   // Unknown keys (future metrics) still show up rather than vanish silently.
@@ -125,7 +125,9 @@ function winnersLosers(view) {
 
 function academicBox(a) {
   if (!a) return '';
-  const head = [a.chapter != null ? chapterLabel(a.chapter) : '', a.topic].filter(Boolean).join(' — ');
+  // With an explicit topic, keep only "Chương N" so the topic is not repeated.
+  const ch = a.chapter != null && a.topic && /^\d+$/.test(String(a.chapter)) ? `Chương ${a.chapter}` : chapterLabel(a.chapter);
+  const head = [ch, a.topic].filter(Boolean).join(' — ');
   return `<section class="tt-academic">
     <h3 class="tt-h3">${glyph('book')}Lăng kính học thuật</h3>
     ${head ? `<div class="tt-ac-topic">${esc(head)}</div>` : ''}

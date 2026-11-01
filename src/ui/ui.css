@@ -25,8 +25,8 @@
   --random: #7a4f8c;
   --shadow: 0 0.4em 1.6em rgba(50, 35, 15, 0.22), 0 0.1em 0.3em rgba(50, 35, 15, 0.18);
   --gap: 1em;
-  --panel-w: 38vw;
-  --serif: Georgia, 'Noto Serif', 'Times New Roman', serif;
+  --panel-w: 40vw;
+  --serif: 'Noto Serif', 'Palatino Linotype', Palatino, Cambria, 'Book Antiqua', 'Times New Roman', serif; /* all cover Vietnamese; Georgia does not */
   --sans: 'Segoe UI', 'Noto Sans', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   position: absolute;
@@ -128,8 +128,8 @@
 .tt-metric.is-flash-good { animation: tt-flash-good 1.2s ease-out; }
 .tt-metric.is-flash-bad { animation: tt-flash-bad 1.2s ease-out; }
 
-.tt-float-host { position: absolute; right: 0.2em; top: -0.4em; pointer-events: none; }
-.tt-res .tt-float-host { right: 0.3em; top: -0.2em; }
+.tt-float-host { position: absolute; right: 2.6em; top: 0; pointer-events: none; }
+.tt-res .tt-float-host { right: 2.4em; top: 0.1em; }
 .tt-floater {
   position: absolute; right: 0; top: 0; font-weight: 800; font-size: 1.15em; white-space: nowrap;
   padding: 0 0.35em; border-radius: 0.3em; animation: tt-float 1.8s ease-out forwards;
@@ -176,6 +176,12 @@
   padding: 1em 1.2em 0.8em;
   scrollbar-width: thin;
   scrollbar-color: rgba(60, 45, 30, 0.35) transparent;
+  /* Scroll shadows: a soft edge appears only where more content is hidden. */
+  background:
+    linear-gradient(rgb(248, 242, 229) 30%, rgba(248, 242, 229, 0)) center top / 100% 2.2em no-repeat local,
+    linear-gradient(rgba(248, 242, 229, 0), rgb(248, 242, 229) 70%) center bottom / 100% 2.2em no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(60, 45, 30, 0.28), transparent) center top / 100% 0.9em no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(60, 45, 30, 0.28), transparent) center bottom / 100% 0.9em no-repeat scroll;
 }
 .tt-card-scroll::-webkit-scrollbar { width: 0.45em; }
 .tt-card-scroll::-webkit-scrollbar-thumb { background: rgba(60, 45, 30, 0.35); border-radius: 99em; }
@@ -202,7 +208,7 @@
 .tt-quote { border-left: 0.25em solid var(--warn); padding-left: 0.8em; font-style: italic; }
 .tt-muted { color: var(--muted); }
 
-.tt-sec { margin-top: 0.75em; }
+.tt-sec { margin-top: 0.65em; }
 .tt-h3 {
   display: flex; align-items: center; gap: 0.4em;
   font-size: 0.74em; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
@@ -228,8 +234,8 @@
 
 /* choices */
 .tt-choices {
-  flex: 0 1 auto;
-  max-height: 58%;
+  flex: 0 0 auto;
+  max-height: 60%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -287,7 +293,8 @@
 /* deltas + result */
 .tt-chosen { margin-bottom: 0.2em; }
 .tt-deltas { display: flex; flex-wrap: wrap; gap: 0.4em; }
-.tt-deltas.is-big { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5em, 1fr)); gap: 0.45em; }
+.tt-deltas.is-big { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45em; }
+.tt-deltas.is-big .tt-delta-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tt-delta {
   display: inline-flex; align-items: center; gap: 0.4em; padding: 0.15em 0.55em; border-radius: 0.4em;
   font-size: 0.85em; font-weight: 600; border: 1px solid transparent;
@@ -322,6 +329,7 @@
 .tt-wl-col.is-win { background: rgba(223, 236, 207, 0.7); }
 .tt-wl-col.is-lose { background: rgba(245, 217, 207, 0.7); }
 .tt-wl .tt-sh { width: 4.6em; }
+.tt-wl .tt-sh-icon { width: 2.2em; height: 2.2em; }
 
 .tt-academic {
   margin-top: 0.9em; padding: 0.7em 0.9em; border-radius: 0.6em;
@@ -374,7 +382,9 @@
 .tt-end-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em; }
 .tt-path { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2em; margin-left: auto; }
 .tt-path-sep { color: var(--muted); font-size: 0.8em; }
-.tt-end-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 0.8em 1.2em; align-items: start; }
+.tt-end-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8em 1em; align-items: start; }
+.tt-end-chart { grid-column: span 2; }
+.tt-ch-caption { font-size: 0.72em; color: var(--muted); margin: -0.2em 0 0.2em !important; }
 .tt-end-side { display: flex; flex-direction: column; gap: 0.8em; }
 .tt-end-block { background: rgba(255, 250, 240, 0.75); border: 1px solid var(--line); border-radius: 0.6em; padding: 0.6em 0.8em; }
 .tt-end-chart { padding-bottom: 0.3em; }
@@ -400,10 +410,9 @@
 .tt-ch-code { font-size: 13px; fill: var(--ink-2); font-weight: 700; font-family: ui-monospace, Consolas, monospace; }
 .tt-ch-tp { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 5; opacity: 0.7; }
 .tt-ch-tpdot { fill: var(--accent); }
-.tt-ch-series { color: var(--mc); }
+.tt-ch-series { color: var(--mc); animation: tt-draw 1.6s ease-out backwards; animation-delay: calc(var(--i) * 120ms); }
 .tt-ch-line {
   fill: none; stroke: var(--mc); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round;
-  stroke-dasharray: 1; stroke-dashoffset: 0; animation: tt-draw 1.6s ease-out backwards; animation-delay: calc(var(--i) * 120ms);
 }
 .tt-ch-dots circle { fill: var(--paper); stroke: var(--mc); stroke-width: 2.4; }
 .tt-ch-lead { stroke: var(--mc); stroke-width: 1; opacity: 0.6; }
@@ -423,7 +432,6 @@
 }
 .tt-toast.is-bad { background: rgba(140, 40, 32, 0.95); }
 .tt-toast.is-out { opacity: 0; transform: translateY(-0.5em); }
-.tt-hint { display: none; }
 
 /* ---------- modes ---------- */
 .tt-presenter .tt-note { display: none !important; }
@@ -451,9 +459,9 @@
 @keyframes tt-card-in { from { opacity: 0; transform: translateX(1.5em); } to { opacity: 1; transform: none; } }
 @keyframes tt-rise { from { opacity: 0; transform: translateY(0.5em); } to { opacity: 1; transform: none; } }
 @keyframes tt-pop { 0% { opacity: 0; transform: scale(0.85); } 70% { transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
-@keyframes tt-float { 0% { opacity: 0; transform: translateY(0.4em); } 15% { opacity: 1; transform: translateY(0); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.6em); } }
+@keyframes tt-float { 0% { opacity: 0; transform: translateY(0.4em); } 15% { opacity: 1; transform: translateY(0); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-0.9em); } }
 @keyframes tt-flash-good { 0% { background: rgba(223, 236, 207, 1); } 100% { background: transparent; } }
 @keyframes tt-flash-bad { 0% { background: rgba(245, 217, 207, 1); } 100% { background: transparent; } }
 @keyframes tt-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-0.4em); } 40% { transform: translateX(0.4em); } 60% { transform: translateX(-0.25em); } 80% { transform: translateX(0.25em); } }
 @keyframes tt-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(154, 106, 12, 0); } 50% { box-shadow: 0 0 0 0.25em rgba(154, 106, 12, 0.18); } }
-@keyframes tt-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes tt-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }

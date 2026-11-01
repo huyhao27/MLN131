@@ -61,7 +61,7 @@ function lineChart(view) {
     const d = points.map(([yr, ms], j) => `${j ? 'L' : 'M'}${x(yr).toFixed(1)},${y(Number(ms?.[mt.key] ?? 0)).toFixed(1)}`).join(' ');
     const dots = points.map(([yr, ms]) => `<circle cx="${x(yr).toFixed(1)}" cy="${y(Number(ms?.[mt.key] ?? 0)).toFixed(1)}" r="3.6"/>`).join('');
     return `<g class="tt-ch-series" style="--mc:${mt.color};--i:${i}">
-      <path class="tt-ch-line" d="${d}" pathLength="1"/>
+      <path class="tt-ch-line" d="${d}"/>
       <g class="tt-ch-dots">${dots}</g></g>`;
   }).join('');
 
@@ -142,7 +142,8 @@ export function renderEnd(view) {
         ${secondary.length ? `<p class="tt-end-secondary"><span class="tt-eyebrow">Chú giải phụ</span> ${secondary.map((s) => `<span class="tt-flag is-mixed">${esc(s)}</span>`).join(' ')}</p>` : ''}
       </header>
       <div class="tt-end-grid">
-        <section class="tt-end-block tt-end-chart"><h3 class="tt-h3">Diễn biến 6 chỉ số</h3>${lineChart(view)}</section>
+        <section class="tt-end-block tt-end-chart"><h3 class="tt-h3">Diễn biến 6 chỉ số</h3>
+          <p class="tt-ch-caption">Nét đứt: năm có quyết định bước ngoặt · Vùng đỏ nhạt: dưới ${WARN_LEVEL}</p>${lineChart(view)}</section>
         <div class="tt-end-side">
           ${e.question ? `<section class="tt-end-block tt-end-question"><h3 class="tt-h3">${glyph('book')}Câu hỏi giáo trình</h3><p>${esc(e.question)}</p></section>` : ''}
           ${listBlock('Quyết định bước ngoặt', view.turningPoints, 'flag', turningPoint)}

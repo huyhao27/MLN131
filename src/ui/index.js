@@ -29,7 +29,6 @@ export function createUI(rootEl, { onAct = () => {}, onUndo, onToggleRandom } = 
       <aside class="tt-panel" aria-live="polite"></aside>
       <section class="tt-end"></section>
       <div class="tt-toasts" aria-live="polite"></div>
-      <div class="tt-hint tt-note">1–4 chọn · Enter tiếp tục · P trình chiếu · S hoạt ảnh · F toàn màn hình</div>
     </div>`;
   const ui = rootEl.querySelector('.tt-ui');
   const panel = ui.querySelector('.tt-panel');
