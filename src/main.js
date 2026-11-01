@@ -25,6 +25,12 @@ async function boot() {
 
   const world = await loadWorld(document.getElementById('world'));
   world?.bindBus?.(bus);
+  // Light flourish on outcomes: net metric change decides the mood.
+  bus.on('sim:view', ({ view }) => {
+    if (!world || (view.phase !== 'result' && view.phase !== 'randomResult')) return;
+    const net = Object.values(view.deltas ?? {}).reduce((a, b) => a + b, 0);
+    world.pulse(net > 4 ? 'good' : net < -4 ? 'bad' : 'neutral');
+  });
 
   const game = createGame({ seed, bus, randomEvents: params.get('random') !== '0' });
   const ui = createUI(document.getElementById('ui'), {
