@@ -1,5 +1,5 @@
 // Ending classification (GDD §7.2) and final report data.
-import { INITIAL, METRIC_KEYS, METRIC_LABELS, STAKEHOLDERS, ENDINGS, SECONDARY_NOTES, WHAT_IF } from '../data/index.js';
+import { INITIAL, RULES, METRIC_KEYS, METRIC_LABELS, STAKEHOLDERS, ENDINGS, E5_VARIANTS, SECONDARY_NOTES, WHAT_IF } from '../data/index.js';
 import { NODES } from './engine.js';
 
 /** Which ending conditions hold for the current metrics. */
@@ -13,22 +13,61 @@ export function endingConditions(s) {
   };
 }
 
-// Priority: E6 -> E2 -> E3 -> E4 -> E1 -> E5.
+// Tie-break order when two imbalance endings are equally severe (old fixed priority).
 const PRIORITY = ['E2', 'E3', 'E4', 'E1'];
+const IMBALANCES = ['E2', 'E3', 'E4'];
+
+/** How far past its thresholds each imbalance ending is (0 when it does not hold).
+ *  Measured as the depth of the shortfall in metric points, so the three compare
+ *  on one scale without hand-picked weights; ties keep the GDD order. */
+export function endingSeverity(s) {
+  const m = s.metrics, r = s.resources;
+  const c = endingConditions(s);
+  return {
+    E2: c.E2 ? Math.max(45 - m.LIFE, 40 - m.EQUITY) : 0,
+    E3: c.E3 ? Math.max(40 - m.PROD, r.DEBT - 75) : 0,
+    E4: c.E4 ? Math.max(35 - m.LAW, 35 - m.TRUST) : 0,
+  };
+}
+
+/** Points still missing for E1 (0 = all E1 thresholds met). */
+export function e1Shortfall(s) {
+  const m = s.metrics, r = s.resources;
+  let gap = 0;
+  for (const k of METRIC_KEYS) gap += Math.max(0, 55 - m[k]);
+  gap += Math.max(0, 60 - Math.max(m.LAW, 55)); // LAW needs 60, the 55 part is counted above
+  gap += Math.max(0, r.DEBT - 59);
+  return gap;
+}
+
+/** E5 sub-state: 'near' (a few points from E1), 'uneven' (some metric left far behind), 'stalled'. */
+export function e5Variant(s) {
+  if (e1Shortfall(s) <= RULES_E5.nearGap) return 'near';
+  if (METRIC_KEYS.some((k) => s.metrics[k] < 40)) return 'uneven';
+  return 'stalled';
+}
+const RULES_E5 = { nearGap: 6 };
 
 export function classifyEnding(s) {
   if (s.endReason === 'crisis') return { id: 'E6', secondary: [] };
   const conds = endingConditions(s);
-  if (s.repairUsed) conds.E1 = false;
-  const id = PRIORITY.find((k) => conds[k]) || 'E5';
+  // A repair in the final year has not shown lasting recovery yet.
+  const lateRepair = s.repairUsed && s.repairYear >= RULES.years;
+  if (lateRepair) conds.E1 = false;
+
+  const sev = endingSeverity(s);
+  const worst = IMBALANCES.filter((k) => conds[k]).sort((a, b) => sev[b] - sev[a] || PRIORITY.indexOf(a) - PRIORITY.indexOf(b))[0];
+  const id = worst || (conds.E1 ? 'E1' : 'E5');
+  const variant = id === 'E5' ? e5Variant(s) : null;
+
   // secondary[]: { id, title } — other ending conditions that also hold, plus notes.
   const secondary = PRIORITY.filter((k) => k !== id && conds[k]).map((k) => ({ id: k, title: SECONDARY_NOTES[k] }));
-  if (s.repairUsed) secondary.push({ id: 'REPAIR', title: SECONDARY_NOTES.REPAIR });
+  if (s.repairUsed) secondary.push({ id: 'REPAIR', title: lateRepair ? SECONDARY_NOTES.REPAIR_LATE : SECONDARY_NOTES.REPAIR });
   if (s.flags.includes('LABOR_UNRESOLVED') || s.counters.latent_discontent >= 2) {
     secondary.push({ id: 'LABOR_UNRESOLVED', title: SECONDARY_NOTES.LABOR_UNRESOLVED });
   }
   if (s.resources.DEBT >= 50) secondary.push({ id: 'DEBT', title: SECONDARY_NOTES.DEBT });
-  return { id, secondary };
+  return { id, variant, secondary, severity: sev };
 }
 
 const magnitude = (d) => Object.values(d || {}).reduce((a, v) => a + Math.abs(v), 0);
@@ -39,8 +78,8 @@ function metricLine(k, from, to) {
 }
 
 export function buildReport(s) {
-  const { id, secondary } = classifyEnding(s);
-  const base = ENDINGS[id];
+  const { id, variant, secondary } = classifyEnding(s);
+  const base = variant ? { ...ENDINGS[id], ...E5_VARIANTS[variant], variant } : ENDINGS[id];
 
   const changes = METRIC_KEYS.map((k) => ({ k, from: INITIAL.metrics[k], to: s.metrics[k], diff: s.metrics[k] - INITIAL.metrics[k] }));
   const sorted = [...changes].sort((a, b) => b.diff - a.diff);

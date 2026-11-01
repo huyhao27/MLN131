@@ -4,4 +4,4 @@ export { FLAG_LABELS } from './flags.js';
 export { MAIN_EVENTS } from './main.js';
 export { CONSEQUENCES } from './consequences.js';
 export { RANDOM_EVENTS } from './randoms.js';
-export { BRIEFING, FINAL_REPAIR, ENDINGS, SECONDARY_NOTES, WHAT_IF } from './endings.js';
+export { BRIEFING, FINAL_REPAIR, ENDINGS, E5_VARIANTS, SECONDARY_NOTES, WHAT_IF } from './endings.js';

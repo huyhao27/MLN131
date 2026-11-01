@@ -32,7 +32,11 @@ export function initialState(seed, randomEvents) {
     metrics: { ...INITIAL.metrics },
     resources: { ...INITIAL.resources },
     flags: [],
-    counters: { latent_discontent: 0, consecutive_budget_deficit: 0, random_events_seen: 0, crisis_streak: 0 },
+    counters: { latent_discontent: 0, consecutive_budget_deficit: 0, random_events_seen: 0 },
+    // Consecutive end-of-year crisis count, tracked per crisis type so two
+    // different crises in successive years do not add up to a "2-year" crisis.
+    crisisStreak: { institutional: 0, livelihood: 0 },
+    repairYear: 0,
     pending_effects: [],
     history: [],
     random_seed: seed,
@@ -118,6 +122,12 @@ export function fallbackCost(s, fullCost) {
   return Math.max(0, Math.min(Math.ceil(fullCost * RULES.fallbackCostFactor), s.resources.BUDGET - RULES.minBalance));
 }
 
+/** Share of positive effects a pilot keeps: proportional to the money actually spent, capped at fallbackEffectFactor. */
+export function fallbackFactor(actualCost, fullCost) {
+  if (fullCost <= 0) return RULES.fallbackEffectFactor;
+  return Math.min(RULES.fallbackEffectFactor, actualCost / fullCost);
+}
+
 export function splitOptionId(optionId) {
   return optionId.endsWith(FALLBACK_SUFFIX)
     ? { baseId: optionId.slice(0, -FALLBACK_SUFFIX.length), fallback: true }
@@ -164,7 +174,9 @@ export function applyChoice(s, node, optionId) {
   const r = resolveChoice(choice, s);
   const cost = fallback ? fallbackCost(s, r.cost) : r.cost;
   const capacityCut = !!choice.complex && s.resources.CAPACITY < RULES.lowCapacity;
-  const posFactor = (fallback ? RULES.fallbackEffectFactor : 1) * (capacityCut ? RULES.lowCapacityFactor : 1);
+  // implementationQuality also scales the delayed benefits, so a weak rollout
+  // cannot collect full payoffs later.
+  const posFactor = (fallback ? fallbackFactor(cost, r.cost) : 1) * (capacityCut ? RULES.lowCapacityFactor : 1);
   const scalePos = (d) => (d > 0 ? Math.trunc(d * posFactor) : d);
 
   const metricEff = {};
@@ -193,9 +205,9 @@ export function applyChoice(s, node, optionId) {
     const effects = {};
     for (const [k, d] of Object.entries(p.effects)) {
       // DEBT/BUDGET-negative are costs, not benefits; only scale beneficial metric/capacity effects.
-      effects[k] = k === 'DEBT' || k === 'BUDGET' ? d : fallback ? scalePosFallback(d) : d;
+      effects[k] = k === 'DEBT' || k === 'BUDGET' ? d : scalePos(d);
     }
-    s.pending_effects.push({ due, if: p.if || '', effects, text: p.text, source: optionId, code: node.id, from: s.year });
+    s.pending_effects.push({ due, if: p.if || '', effects, text: p.text, source: optionId, code: node.id, from: s.year, quality: posFactor });
     scheduled.push({ year: due, text: `Năm ${due}: ${p.text}${p.if ? ' (nếu điều kiện còn phù hợp)' : ''}`, conditional: !!p.if });
   }
 
@@ -236,17 +248,15 @@ export function applyChoice(s, node, optionId) {
   };
 }
 
-function scalePosFallback(d) {
-  return d > 0 ? Math.trunc(d * RULES.fallbackEffectFactor) : d;
-}
-
 // ------------------------------------------------------------------ year cycle
 
 export function income(s) {
   const { base, prodPivot, prodStep, debtStep, min } = RULES.income;
   return Math.max(
     min,
-    base + Math.floor((s.metrics.PROD - prodPivot) / prodStep) - Math.ceil(s.resources.DEBT / debtStep),
+    // Rounded (not floor/ceil) so steps sit mid-interval: DEBT 0->1 no longer
+    // costs a whole income unit (balancing review §2.1).
+    base + Math.round((s.metrics.PROD - prodPivot) / prodStep) - Math.round(s.resources.DEBT / debtStep),
   );
 }
 
@@ -377,13 +387,17 @@ export function enterRandom(s, r) {
   s.randomLog.push({ year: s.year, id: r.id, tag: r.tag });
 }
 
-export function crisisType(s, margin = 0) {
+/** All crisis types currently active (both can hold at once). */
+export function crisisTypes(s, margin = 0) {
   const { institutional: I, livelihood: L } = RULES.crisis;
   const m = s.metrics;
-  if (m.LAW <= I.LAW + margin && m.TRUST <= I.TRUST + margin) return 'institutional';
-  if (m.LIFE <= L.LIFE + margin && m.PROD <= L.PROD + margin) return 'livelihood';
-  return null;
+  const out = [];
+  if (m.LAW <= I.LAW + margin && m.TRUST <= I.TRUST + margin) out.push('institutional');
+  if (m.LIFE <= L.LIFE + margin && m.PROD <= L.PROD + margin) out.push('livelihood');
+  return out;
 }
+
+export const maxCrisisStreak = (s) => Math.max(...Object.values(s.crisisStreak));
 
 /** End-of-year bookkeeping. Returns 'next' | 'repair' | 'end'. */
 export function endYear(s) {
@@ -397,11 +411,14 @@ export function endYear(s) {
   }
   s.timeline.push({ year: s.year, metrics: { ...s.metrics }, resources: { ...s.resources } });
 
-  const type = crisisType(s);
-  s.counters.crisis_streak = type ? s.counters.crisis_streak + 1 : 0;
-  if (s.counters.crisis_streak >= 2) {
+  const active = crisisTypes(s);
+  for (const t of Object.keys(s.crisisStreak)) s.crisisStreak[t] = active.includes(t) ? s.crisisStreak[t] + 1 : 0;
+  const prolonged = active.filter((t) => s.crisisStreak[t] >= 2);
+  if (prolonged.length) {
     if (!s.repairUsed) {
-      s.crisis = type;
+      // Both prolonged: the repair node addresses the institutional one, but
+      // repairResolved() still requires every crisis to be cleared.
+      s.crisis = prolonged[0];
       s.phase = 'finalRepair';
       s.node = 'FINAL_REPAIR';
       return 'repair';
@@ -412,14 +429,14 @@ export function endYear(s) {
   return s.year >= RULES.years ? 'end' : 'next';
 }
 
-/** After FINAL_REPAIR: resolved only if out of the crisis zone by the recovery margin. */
+/** After FINAL_REPAIR: resolved only if every crisis type is out of the zone by the recovery margin. */
 export function repairResolved(s) {
-  return crisisType(s, RULES.crisis.recoveryMargin) !== s.crisis;
+  return crisisTypes(s, RULES.crisis.recoveryMargin).length === 0;
 }
 
 export function warningFor(s) {
   const m = s.metrics, r = s.resources, c = s.counters;
-  if (c.crisis_streak >= 1) {
+  if (maxCrisisStreak(s) >= 1) {
     return 'Nguy cơ khủng hoảng: nếu tình trạng này kéo dài thêm một năm, Hội đồng chỉ còn một cơ hội cứu vãn.';
   }
   if (r.CAPACITY < RULES.lowCapacity) return 'Năng lực thực thi thấp: tác động tích cực của các chính sách phức tạp bị giảm mạnh.';

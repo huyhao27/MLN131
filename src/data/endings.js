@@ -105,13 +105,30 @@ export const ENDINGS = {
   },
 };
 
+// E5 covers very different states; the report picks one of these (GDD balancing review §5.3).
+export const E5_VARIANTS = {
+  near: {
+    title: 'Cải cách dang dở — cận thành công',
+    text: 'Hầu hết các tiêu chí của chuyển đổi có nền tảng đã gần đạt, chỉ còn thiếu vài điểm ở một số mặt. Thành quả là thật, nhưng chưa đủ đồng đều để gọi là bền vững.',
+  },
+  uneven: {
+    title: 'Cải cách dang dở — phát triển không đồng đều',
+    text: 'Một số mặt tiến bộ rõ, nhưng có lĩnh vực bị bỏ lại xa phía sau. Mâu thuẫn giữa các mặt phát triển trở thành việc chính của nhiệm kỳ sau.',
+  },
+  stalled: {
+    title: 'Cải cách dang dở — giậm chân',
+    text: 'Không có khủng hoảng lớn, nhưng cũng không mặt nào bứt lên. Năng lực thực thi và liên minh xã hội chưa đủ để chuyển hóa nỗ lực thành thay đổi.',
+  },
+};
+
 // Short notes shown when a non-primary ending condition also holds (GDD §7.2: keep the paradox visible).
 export const SECONDARY_NOTES = {
   E1: 'Đồng thời đạt nhiều tiêu chí của chuyển đổi có nền tảng.',
   E2: 'Có dấu hiệu tăng trưởng lệch pha: sản xuất cao nhưng đời sống hoặc công bằng tụt lại.',
   E3: 'Có dấu hiệu phúc lợi thiếu bền vững: mức sống dựa vào nguồn lực chưa vững.',
   E4: 'Có dấu hiệu ổn định hình thức: ít xung đột bề mặt nhưng niềm tin hoặc pháp quyền thấp.',
-  REPAIR: 'Hội đồng đã phải dùng nút cứu vãn cuối: chuyển đổi có nền tảng không còn khả dĩ trong nhiệm kỳ này.',
+  REPAIR: 'Hội đồng đã phải dùng nút cứu vãn cuối và phục hồi được: kết quả này có một hành trình khủng hoảng phía sau.',
+  REPAIR_LATE: 'Cứu vãn diễn ra ngay năm cuối: mới thoát nguy cấp, chưa chứng minh được phục hồi bền vững.',
   LABOR_UNRESOLVED: 'Mâu thuẫn lao động từ những năm đầu vẫn chưa được giải quyết.',
   DEBT: 'Áp lực nợ cao sẽ thu hẹp lựa chọn của nhiệm kỳ sau.',
 };

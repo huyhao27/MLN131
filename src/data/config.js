@@ -16,7 +16,9 @@ export const INITIAL = {
 
 export const RULES = {
   years: 8,
-  income: { base: 8, prodPivot: 50, prodStep: 15, debtStep: 25, min: 5 },
+  // debtStep 15 (A/B tested 15–25 with rounded steps): heavier debt drag keeps blind
+  // always-A from beating a budget-aware player (balancing review §8).
+  income: { base: 8, prodPivot: 50, prodStep: 15, debtStep: 15, min: 5 },
   // A choice is selectable only if BUDGET - cost >= minBalance.
   minBalance: -10,
   // End of year: BUDGET<0 is financed by borrowing: DEBT += |BUDGET| * deficitDebtFactor, BUDGET := 0.
@@ -33,8 +35,8 @@ export const RULES = {
   random: {
     maxPerSession: 3,
     firstYear: 2,
-    chance: 0.42, // chance to draw when only "background" events are eligible
-    consequenceChance: 0.75, // chance when an event illustrating earlier flags is eligible
+    chance: 0.35, // chance to draw when only "background" events are eligible (A/B tested 0.30–0.42)
+    consequenceChance: 0.7, // chance when an event illustrating earlier flags is eligible
   },
   // Early crisis (GDD §7.1). Checked at end of every year; 2 consecutive years -> FINAL_REPAIR.
   crisis: {

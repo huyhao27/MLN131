@@ -173,7 +173,8 @@ export function createGame({ seed = 2026, randomEvents = true, bus = coreBus, em
           s.node = null;
           return;
         }
-        s.counters.crisis_streak = 0;
+        s.crisisStreak = { institutional: 0, livelihood: 0 };
+        s.repairYear = s.year;
         if (s.year >= RULES.years) {
           s.phase = 'end';
           s.node = null;

@@ -19,6 +19,8 @@ const VERBOSE = args.includes('--verbose');
 if (arg('--budget') !== undefined) INITIAL.resources.BUDGET = Number(arg('--budget'));
 if (arg('--income') !== undefined) RULES.income.base = Number(arg('--income'));
 if (arg('--chance') !== undefined) RULES.random.chance = Number(arg('--chance'));
+if (arg('--debtstep') !== undefined) RULES.income.debtStep = Number(arg('--debtstep'));
+if (arg('--debtfactor') !== undefined) RULES.deficitDebtFactor = Number(arg('--debtfactor'));
 const ONLY = arg('--only')?.split(',');
 
 let failures = 0;
@@ -88,8 +90,15 @@ const STRATEGIES = {
   }),
   // Deliberately drives LAW/TRUST down to trigger the early crisis; refuses the full repair.
   crisis: scorer({ weights: { LAW: -3, TRUST: -3, LIFE: -1, PROD: -1, COHESION: -0.5 }, repair: 'REPAIR-B' }),
+  // Same descent into crisis, then takes the full repair and governs sensibly:
+  // measures whether recovery is actually possible.
+  crisisRepair: null, // defined below (needs `balanced`)
   random: null, // uniform among enabled options (set per run)
 };
+{
+  const dive = scorer({ weights: { LAW: -3, TRUST: -3, LIFE: -1, PROD: -1, COHESION: -0.5 }, repair: 'REPAIR-A' });
+  STRATEGIES.crisisRepair = (v, g) => (g.state.repairUsed ? STRATEGIES.balanced(v, g) : dive(v, g));
+}
 
 // ------------------------------------------------------------------ invariants
 
@@ -291,6 +300,9 @@ if (ONLY) process.exit(failures ? 1 : 0);
 const top = (name) => Object.entries(results[name].dist).sort((a, b) => b[1] - a[1])[0][0];
 const share = (name, e) => (results[name].dist[e] || 0) / results[name].runs;
 assert(share('crisis', 'E6') > 0.5, 'crisis-on-purpose should mostly end in E6');
+assert(share('crisisRepair', 'E6') < 0.9, 'recovery after a full repair must be possible');
+assert(share('balanced', 'E1') >= 0.35 && share('balanced', 'E1') <= 0.65, 'balanced E1 rate should stay near the 40–60% target');
+assert(share('reformer', 'E1') <= share('balanced', 'E1') + 0.05, 'blind always-A must not beat a budget-aware player');
 assert(share('balanced', 'E1') > 0, 'E1 must be reachable by the balanced strategy');
 assert(share('random', 'E1') < 0.25, 'E1 must not be trivial for random play');
 assert(new Set(['growth', 'welfare', 'control', 'balanced', 'crisis'].map(top)).size >= 4, 'strategies should reach different endings');
