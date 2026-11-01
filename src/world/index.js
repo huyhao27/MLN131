@@ -1,5 +1,7 @@
 // Diorama of the fictional island republic "Hòa Minh".
 // Contract (ARCHITECTURE.md): createDiorama(canvas) -> { focus, resetView, setState, pulse, setQuality, bindBus }.
+// Region mode (ARCHITECTURE_REGIONS.md): setMode, setRegions, hoverRegion, selectRegion,
+// showLinks, pickRegion, regionAnchors, onFrame; emits world:hover / world:pick on the bus.
 import * as THREE from 'three';
 import { clamp, damp } from '../core/math.js';
 import { makeRng } from '../core/rng.js';
@@ -13,6 +15,9 @@ import { CameraRig, PITCH } from './camera.js';
 import { buildProps, buildMovers, EXTRA_SMOKE, SITES } from './layout.js';
 import { moverPoint, validateLayout } from './footprint.js';
 import { createLayoutOverlay } from './overlay.js';
+import { REGION_IDS, regionAt } from './regiongeo.js';
+import { regionWorldState, localState } from './regionstate.js';
+import { RegionLayer, regionShot, overviewShot } from './regions.js';
 
 const METRICS = ['PROD', 'LIFE', 'TRUST', 'LAW', 'EQUITY', 'COHESION'];
 const DEFAULTS = { PROD: 52, LIFE: 48, TRUST: 54, LAW: 51, EQUITY: 45, COHESION: 57 };
@@ -53,7 +58,11 @@ export function createDiorama(canvas, opts = {}) {
   const camera = new THREE.PerspectiveCamera(30, 16 / 9, 5, 3000);
   const rig = new CameraRig(camera);
   // Viewer pan / zoom / turn on the canvas (UI panels sit above it and keep their own events).
-  const unbindInput = opts.input === false ? () => {} : rig.bindInput(canvas);
+  // Taps and hovers feed region picking (only acted on in region mode).
+  const unbindInput = opts.input === false ? () => {} : rig.bindInput(canvas, {
+    onTap: (e) => onTap(e),
+    onHover: (e) => onHover(e),
+  });
   const U = createSharedUniforms();
 
   const atlas = buildAtlas({ scale: 1 });
@@ -74,6 +83,12 @@ export function createDiorama(canvas, opts = {}) {
 
   let S = { ...DEFAULTS, flags: new Set(), year: 1 };
   const shown = { ...DEFAULTS };
+  // 'classic' (default, the 8-year game) or 'regions'. classicS keeps the classic state
+  // while region mode runs, so switching back restores it.
+  let mode = 'classic';
+  let classicS = S;
+  const frameFns = new Set();
+  const layer = new RegionLayer({ scene, camera, canvas, U, ground });
 
   // ---- static props ----
   const ruled = [];
@@ -81,17 +96,19 @@ export function createDiorama(canvas, opts = {}) {
   const anchors = [];
   props.forEach((p) => {
     const glowCh = p.glowK ? GLOW_CH[p.glowK] : undefined;
-    const i = statics.add({ ...p, glowCh });
+    const i = statics.add({ ...p, glowCh, regionIndex: p.region ? REGION_IDS.indexOf(p.region) : undefined });
     if (i < 0) return;
-    if (p.show) ruled.push({ layer: statics, i, rule: p.show, x: p.x, z: p.z });
+    if (p.show) ruled.push({ layer: statics, i, rule: p.show, x: p.x, z: p.z, region: p.region });
     const def = statics.items[i].def;
     for (const [u, v] of def.smoke ?? []) {
       const pos = statics.anchor(i, u, v, PITCH);
       anchors.push({ pos, i, u, v });
       const it = statics.items[i];
+      const reg = p.region;
       smoke.addEmitter(pos, {
         rate: 7, size: 3.6, rise: 2.6, shade: 0.62,
-        getStrength: () => it.g * clamp((shown.PROD - 25) / 55, 0.05, 1.2),
+        // Region mode: the chimney follows its own region (output, power shortage).
+        getStrength: () => it.g * (mode === 'regions' && reg ? layer.smokeOf(reg) : clamp((shown.PROD - 25) / 55, 0.05, 1.2)),
       });
     }
   });
@@ -106,8 +123,8 @@ export function createDiorama(canvas, opts = {}) {
     const lens = [0];
     for (let j = 1; j < pts.length; j++) lens.push(lens[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
     const L = lens[lens.length - 1] || 1;
-    const i = dynamics.add({ k: m.k, x: pts[0][0], z: pts[0][1], bob: m.walker ? 1 : m.k === 'boat' ? 0.4 : m.k === 'rider' ? 0.15 : 0.05, seed: rng() });
-    if (m.show) ruled.push({ layer: dynamics, i, rule: m.show, x: pts[0][0], z: pts[0][1] });
+    const i = dynamics.add({ k: m.k, x: pts[0][0], z: pts[0][1], bob: m.walker ? 1 : m.k === 'boat' ? 0.4 : m.k === 'rider' ? 0.15 : 0.05, seed: rng(), regionIndex: m.region ? REGION_IDS.indexOf(m.region) : undefined });
+    if (m.show) ruled.push({ layer: dynamics, i, rule: m.show, x: pts[0][0], z: pts[0][1], region: m.region });
     return { ...m, i, lens, L, s: m.offset * L };
   });
 
@@ -136,9 +153,9 @@ export function createDiorama(canvas, opts = {}) {
 
   // ---- state ----
   function applyRules({ instant = false } = {}) {
-    const fx = SITES[rig.site]?.x ?? 0, fz = SITES[rig.site]?.z ?? 0;
+    const fx = SITES[rig.site]?.x ?? (mode === 'regions' ? rig.cur.x : 0), fz = SITES[rig.site]?.z ?? (mode === 'regions' ? rig.cur.z : 0);
     for (const r of ruled) {
-      const to = r.rule(S) ? 1 : 0;
+      const to = r.rule(mode === 'regions' ? localState(S, r.region) : S) ? 1 : 0;
       // Things near the focused site pop in sequence, others quietly.
       const dist = Math.hypot(r.x - fx, r.z - fz);
       r.layer.setTarget(r.i, to, { instant, delay: instant ? 0 : Math.min(1.4, 0.15 + dist * 0.006 + Math.random() * 0.35) });
@@ -147,7 +164,12 @@ export function createDiorama(canvas, opts = {}) {
   applyRules({ instant: true });
 
   function setState(input) {
-    S = normalizeState(input, S);
+    if (mode === 'regions') {
+      // Classic metrics arriving in region mode are kept for when classic returns.
+      classicS = normalizeState(input, classicS);
+      return;
+    }
+    S = classicS = normalizeState(input, S);
     applyRules();
   }
 
@@ -201,7 +223,8 @@ export function createDiorama(canvas, opts = {}) {
     const realDt = (now - last) / 1000;
     last = now;
     resize();
-    tick(Math.min(0.05, Math.max(0, realDt)), realDt > 0.25 ? 0.016 : Math.min(0.05, realDt));
+    // rAF timestamps can run slightly behind performance.now(): never step backwards.
+    tick(Math.min(0.05, Math.max(0, realDt)), realDt > 0.25 ? 0.016 : Math.min(0.05, Math.max(0, realDt)));
     present();
 
     // Auto-lower quality once if frames stay slow for a few seconds.
@@ -255,6 +278,7 @@ export function createDiorama(canvas, opts = {}) {
     clouds.uniforms.uFade.value = clamp((d - 170) / 140, 0, 1);
     clouds.mesh.visible = clouds.uniforms.uFade.value > 0.01;
 
+    layer.update(dt, d);
     statics.update(dt);
     dynamics.update(dt);
     clouds.update(dt);
@@ -284,15 +308,102 @@ export function createDiorama(canvas, opts = {}) {
     rig.resetView();
   }
 
+  let boundBus = null;
   function bindBus(bus) {
+    boundBus = bus;
     const offs = [
       bus.on('sim:view', (p) => {
         const view = p?.view ?? p;
-        if (view?.site) focus(view.site);
+        if (mode === 'classic' && view?.site) focus(view.site);
       }),
       bus.on('sim:state', (s) => setState(s)),
+      bus.on('region:view', (p) => {
+        const view = p?.view ?? p;
+        if (mode === 'regions' && Array.isArray(view?.regions)) setRegions(view.regions);
+      }),
     ];
-    return () => offs.forEach((f) => f());
+    return () => {
+      offs.forEach((f) => f());
+      if (boundBus === bus) boundBus = null;
+    };
+  }
+
+  // ---- region mode ----
+  let hovered = null;
+  let regionS = null;
+
+  function setMode(m) {
+    const next = m === 'regions' ? 'regions' : 'classic';
+    if (next === mode) return mode;
+    mode = next;
+    if (mode === 'regions') {
+      classicS = S;
+      S = regionS ?? regionWorldState(S, null);
+      layer.setOn(true);
+      layer.setRegions(S.R);
+      hovered = null;
+      rig.goTo('region:overview', overviewShot(camera.aspect));
+    } else {
+      layer.setOn(false);
+      regionS = S;
+      S = classicS;
+      hovered = null;
+      canvas.style.cursor = '';
+      rig.focus('overview');
+    }
+    applyRules();
+    return mode;
+  }
+
+  function setRegions(list) {
+    if (mode !== 'regions') setMode('regions');
+    S = regionWorldState(S, list);
+    layer.setRegions(S.R);
+    applyRules();
+  }
+
+  function hoverRegion(id) {
+    layer.hover = REGION_IDS.includes(id) ? id : null;
+  }
+
+  function selectRegion(id, { instant = false } = {}) {
+    if (!REGION_IDS.includes(id)) id = null;
+    layer.selected = id;
+    if (mode !== 'regions') return;
+    if (id) rig.goTo(`region:${id}`, regionShot(id, camera.aspect), { instant });
+    else rig.goTo('region:overview', overviewShot(camera.aspect), { instant });
+  }
+
+  function showLinks(list) {
+    layer.links.set(mode === 'regions' ? list : []);
+  }
+
+  function pickRegion(clientX, clientY) {
+    return layer.pick(clientX, clientY);
+  }
+
+  function regionAnchors() {
+    return layer.anchors();
+  }
+
+  function onFrame(fn) {
+    if (typeof fn !== 'function') return () => {};
+    frameFns.add(fn);
+    return () => frameFns.delete(fn);
+  }
+
+  function onHover(e) {
+    if (mode !== 'regions') return;
+    const id = e ? layer.pick(e.clientX, e.clientY) : null;
+    canvas.style.cursor = id ? 'pointer' : '';
+    if (id === hovered) return;
+    hovered = id;
+    boundBus?.emit('world:hover', { region: id });
+  }
+
+  function onTap(e) {
+    if (mode !== 'regions') return;
+    boundBus?.emit('world:pick', { region: layer.pick(e.clientX, e.clientY) });
   }
 
   // ---- layout debug ----
@@ -301,6 +412,12 @@ export function createDiorama(canvas, opts = {}) {
   const overlayScene = new THREE.Scene();
   function present() {
     post.render(scene, camera);
+    if (frameFns.size) {
+      const a = layer.anchors();
+      for (const fn of [...frameFns]) {
+        try { fn(a); } catch (err) { console.warn('[world] onFrame', err); }
+      }
+    }
     if (!overlay?.visible) return;
     renderer.autoClear = false;
     renderer.clearDepth();
@@ -327,13 +444,17 @@ export function createDiorama(canvas, opts = {}) {
 
   const api = {
     focus, resetView, setState, pulse, setQuality, bindBus, dispose,
+    setMode, setRegions, hoverRegion, selectRegion, showLinks, pickRegion, regionAnchors, onFrame,
+    get mode() { return mode; },
+    get selectedRegion() { return layer.selected; },
+    get hoveredRegion() { return layer.hover; },
     // Overlap report for the current state, a given state, or 'all' (every prop that can appear).
     validateLayout: checkLayout,
-    get state() { return { ...S, flags: [...S.flags] }; },
+    get state() { return mode === 'regions' ? { ...S, flags: [...S.flags], R: undefined, local: undefined } : { ...S, flags: [...S.flags] }; },
     get site() { return rig.site; },
     get quality() { return quality; },
     sites: SITE_IDS,
-    debug: { renderer, scene, camera, rig, post, smoke, statics, dynamics, showLayout, render: present,
+    debug: { renderer, scene, camera, rig, post, smoke, statics, dynamics, showLayout, render: present, regions: layer, regionAt, props, movers,
       // Fast-forward the world (for headless checks / screenshots).
       advance(seconds = 1) {
         for (let t = 0; t < seconds; t += 1 / 30) tick(1 / 30, 1 / 30);

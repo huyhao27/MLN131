@@ -61,8 +61,25 @@ export function createSharedUniforms() {
     uCamDist: { value: 100 },
     uPitch: { value: THREE.MathUtils.degToRad(52) },
     uYaw: { value: 0 },
+    // Region mode (regions.js). Off (0) in classic mode, where none of these are read.
+    // Per region, in REGION_IDS order: wellbeing 0..1, window glow multiplier.
+    uRegionsOn: { value: 0 },
+    uRLife: { value: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5] },
+    uRGlow: { value: [1, 1, 1, 1, 1, 1] },
   };
 }
+
+// Per-region lookups for card shaders (index 0..5, -1 = no region).
+export const GLSL_REGION_CARDS = /* glsl */ `
+uniform float uRegionsOn;
+uniform float uRLife[6];
+uniform float uRGlow[6];
+float rPick(float a[6], float i, float fallback) {
+  float v = fallback;
+  for (int k = 0; k < 6; k++) if (abs(i - float(k)) < 0.5) v = a[k];
+  return v;
+}
+`;
 
 export const GLSL_COMMON = /* glsl */ `
 uniform float uTime;

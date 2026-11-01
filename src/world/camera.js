@@ -47,10 +47,16 @@ export class CameraRig {
   focus(siteId, { instant = false } = {}) {
     if (!SITES[siteId]) console.warn('[world] unknown site', siteId);
     const next = SITES[siteId] ? siteId : 'overview';
-    // Re-focusing the site already shown keeps whatever view the viewer chose.
-    if (next === this.site && !instant && (this.tween || this.isUserMoved())) return;
-    this.site = next;
-    const to = shotOf(this.site);
+    this.goTo(next, shotOf(next), { instant });
+  }
+
+  // Fly to an arbitrary framing { x, z, d, fx?, fy? } under the name `name` (region mode
+  // uses 'region:CN' etc.). Same easing / hop / user-view reset as focus().
+  goTo(name, shot, { instant = false } = {}) {
+    // Re-focusing the shot already shown keeps whatever view the viewer chose.
+    if (name === this.site && !instant && (this.tween || this.isUserMoved())) return;
+    this.site = name;
+    const to = { x: shot.x, z: shot.z, d: shot.d, fx: shot.fx ?? FRAME.x, fy: shot.fy ?? FRAME.y };
     if (instant) {
       this.tween = null;
       this.userTween = null;
@@ -141,9 +147,14 @@ export class CameraRig {
   }
 
   // Wire pointer / wheel input on the canvas. Only pointer events: keyboard keys belong to the UI.
-  bindInput(el) {
+  // Optional hooks: onTap(event) for a click / tap that did not drag, onHover(event | null)
+  // for pointer moves with no button held (null when the pointer leaves the canvas).
+  bindInput(el, { onTap = null, onHover = null } = {}) {
     const pts = new Map();
     let mode = null, pinch = null;
+    // Tap detection: one pointer, little travel, short press.
+    let tap = null;
+    const TAP_PX = 6, TAP_MS = 650;
     const H = () => el.clientHeight || window.innerHeight;
     const ndc = (e) => {
       const r = el.getBoundingClientRect();
@@ -157,12 +168,17 @@ export class CameraRig {
       if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
       try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already released pointer */ }
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      tap = pts.size === 1 && e.button === 0 ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() } : null;
       if (pts.size === 2) { mode = 'pinch'; pinch = pinchInfo(); } else if (pts.size === 1) mode = e.button === 2 ? 'rotate' : 'pan';
       el.style.cursor = 'grabbing';
     };
     const move = (e) => {
       const p = pts.get(e.pointerId);
-      if (!p) return;
+      if (!p) {
+        if (onHover && e.pointerType !== 'touch') onHover(e);
+        return;
+      }
+      if (tap && (tap.id !== e.pointerId || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_PX)) tap = null;
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       p.x = e.clientX; p.y = e.clientY;
       if (mode === 'pan') this.pan(dx, dy, H());
@@ -178,7 +194,11 @@ export class CameraRig {
       }
     };
     const up = (e) => {
+      const wasTap = tap && tap.id === e.pointerId && e.type === 'pointerup' && pts.size === 1
+        && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) <= TAP_PX && performance.now() - tap.t < TAP_MS;
+      tap = null;
       pts.delete(e.pointerId);
+      if (wasTap && onTap) onTap(e);
       mode = pts.size === 1 ? 'pan' : null;
       if (!pts.size) el.style.cursor = '';
     };
@@ -189,6 +209,7 @@ export class CameraRig {
     };
     const dbl = () => this.resetView();
     const ctx = (e) => e.preventDefault();
+    const leave = () => { if (onHover && !pts.size) onHover(null); };
     el.style.touchAction = 'none';
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
@@ -197,7 +218,9 @@ export class CameraRig {
     el.addEventListener('wheel', wheel, { passive: false });
     el.addEventListener('dblclick', dbl);
     el.addEventListener('contextmenu', ctx);
+    el.addEventListener('pointerleave', leave);
     return () => {
+      el.removeEventListener('pointerleave', leave);
       el.removeEventListener('pointerdown', down);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);

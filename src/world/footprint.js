@@ -46,6 +46,11 @@ export const FOOT = {
   trash: S(1.1, 0.8), boxes: S(1.1, 0.9),
   // on water
   ship: { cls: 'water', hw: 7, d: 2.5, f: 0.5 }, boat: { cls: 'water', hw: 2, d: 1, f: 0.3 },
+  // region mode
+  site_fence: S(3.5, 0.5), road_block: K(2.0, 0.5), sluice: S(2.3, 1.0), bus_stop: K(1.9, 0.7),
+  cold_store: B(5.2, 4.4), substation: B(4.3, 2.6), clinic: B(3.8, 3.4), workshop: B(5.2, 4.6),
+  // A footbridge spans the river by design: exempt from the water test like the dam.
+  bridge: { cls: 'dam', hw: 6, d: 1.2, f: 0.3 },
 };
 
 export function footOf(p) {
@@ -155,7 +160,8 @@ export function moverPoint(m, path, lens, L, s, dir) {
 }
 
 // Visible subset under a world state S (undefined -> everything that can ever appear).
-const visible = (list, S) => (S ? list.filter((p) => !p.show || p.show(S) > 0) : list);
+// Region mode: S.localFor(p) gives the state a prop's rule sees (its own region's values).
+const visible = (list, S) => (S ? list.filter((p) => !p.show || p.show(S.localFor ? S.localFor(p) : S) > 0) : list);
 
 // Returns { overlaps: [{type, a, b?, at?}], counts }. With no state every prop that can
 // ever be shown is checked at once (state-reactive props must already have free slots);
@@ -185,6 +191,8 @@ export function validateLayout(props, movers, { state } = {}) {
     for (let j = i + 1; j < P.length; j++) {
       const A = P[i], Bb = P[j];
       if (A.p.alt != null && A.p.alt === Bb.p.alt) continue;
+      // A scattered tree that yields to a region work is never shown together with it.
+      if (A.p.yieldTo?.has(Bb.p) || Bb.p.yieldTo?.has(A.p)) continue;
       const ca = A.r.cls, cb = Bb.r.cls;
       if (ca === 'plant' && cb === 'plant') continue;
       if (ca === 'water' || cb === 'water') continue;
@@ -208,10 +216,11 @@ export function validateLayout(props, movers, { state } = {}) {
       if (isWater(x, z)) flag('mover-water', x, z);
       if (m.walker) {
         if (onRoad(x, z, 0.3)) flag('walker-on-road', x, z);
-        for (const e of solids) if (inRect(x, z, e.r, 0.2)) flag('walker-hits-prop', x, z, name(e.p));
+        for (const e of solids) if (e.r.cls !== 'dam' && inRect(x, z, e.r, 0.2)) flag('walker-hits-prop', x, z, name(e.p));
       } else {
         if (!ROADS.some((r) => distPolyline(x, z, r.pts) <= r.w / 2 - 0.2) && !onDock(x, z)) flag('vehicle-off-road', x, z);
-        for (const e of solids) if (e.r.cls !== 'plant' && inRect(x, z, e.r, 0.3)) flag('vehicle-hits-prop', x, z, name(e.p));
+        // Dam and bridges span above the lane.
+        for (const e of solids) if (e.r.cls !== 'plant' && e.r.cls !== 'dam' && inRect(x, z, e.r, 0.3)) flag('vehicle-hits-prop', x, z, name(e.p));
       }
     }
     overlaps.push(...bad.values());
@@ -235,6 +244,8 @@ export class Occupancy {
   conflict(p, { roadPad = 0 } = {}) {
     const r = footOf(p);
     if (!r || r.cls === 'water' || r.cls === 'dam' || r.cls === 'shore') return null;
+    // Region works stay inside their region.
+    if (p.keepIn && !p.keepIn(p.x, p.z)) return 'region';
     if (rectSamples(r).some(([x, z]) => isWater(x, z))) return 'water';
     const clear = ROAD_CLEAR[r.cls] + roadPad;
     for (const rd of ROADS) if (rectPolylineDist(r, rd.pts, rd.w / 2 + clear + 0.01) - rd.w / 2 < clear) return 'road';
@@ -354,9 +365,9 @@ export function settle(raw, occ, { log = false } = {}) {
     let ok;
     if (p.alt != null && altPos.has(p.alt)) {
       [p.x, p.z] = altPos.get(p.alt);
-      ok = !occ.conflict(p) || placeNear(p, occ, SEARCH[cls]);
+      ok = !occ.conflict(p) || placeNear(p, occ, p.search ?? SEARCH[cls]);
     } else if (cls === 'kerb' && nearestRoad(p.x, p.z).d < KERB_REACH) ok = placeKerb(p, occ);
-    else ok = placeNear(p, occ, SEARCH[cls]);
+    else ok = placeNear(p, occ, p.search ?? SEARCH[cls]);
     if (!ok) {
       if (cls === 'plant' || cls === 'kerb' || p.optional) { drop.add(p); continue; }
       if (log) console.warn('[layout] no free slot for', p.k, ox, oz, '->', occ.conflict(p));

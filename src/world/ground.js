@@ -7,6 +7,7 @@ import { PAL, vec3, rgba, shade, mix } from './palette.js';
 import { makeCanvas } from './paint.js';
 import { landField, ROADS, RIVER, RESERVOIR, ZONES, DOCKS, FIELDS, distPolyline } from './layout.js';
 import { GLSL_COMMON } from './glsl.js';
+import { GLSL_REGION, SEED_LIST } from './regiongeo.js';
 
 export const MAP = { x0: -200, z0: -150, size: 400 };
 
@@ -159,6 +160,28 @@ function paintDetail(res) {
   return tex;
 }
 
+// Paddy coverage only (region mode dries the fields of a region short of water).
+function paintFieldMask(res) {
+  const c = makeCanvas(res, res);
+  const ctx = c.getContext('2d');
+  const k = res / MAP.size;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, res, res);
+  ctx.fillStyle = '#fff';
+  for (const f of FIELDS) {
+    ctx.save();
+    ctx.translate((f.x - MAP.x0) * k, (f.z - MAP.z0) * k);
+    ctx.rotate(f.a);
+    ctx.fillRect((-f.w / 2) * k, (-f.d / 2) * k, f.w * k, f.d * k);
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.flipY = false;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  return tex;
+}
+
 const vert = /* glsl */ `
 varying vec2 vXZ;
 varying float vDepth;
@@ -173,6 +196,15 @@ void main() {
 
 const frag = /* glsl */ `
 ${GLSL_COMMON}
+${GLSL_REGION}
+uniform float uRegionsOn;
+uniform float uRLife[6];
+uniform vec4 uRWash[6];
+uniform float uRHi[6];
+uniform float uRField[6];
+uniform float uRSelOn;
+uniform sampler2D uFieldMask;
+uniform vec3 cPaddyDry;
 uniform sampler2D uMask;
 uniform sampler2D uDetail;
 uniform vec4 uMapRect;
@@ -184,6 +216,17 @@ varying float vDepth;
 
 vec3 ramp4(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
   return t < 0.3 ? a : (t < 0.52 ? b : (t < 0.75 ? c : d));
+}
+
+float rGet(float a[6], float i) {
+  float v = 0.0;
+  for (int k = 0; k < 6; k++) if (abs(i - float(k)) < 0.5) v = a[k];
+  return v;
+}
+vec4 rGet4(vec4 a[6], float i) {
+  vec4 v = vec4(0.0);
+  for (int k = 0; k < 6; k++) if (abs(i - float(k)) < 0.5) v = a[k];
+  return v;
 }
 
 void main() {
@@ -207,10 +250,18 @@ void main() {
   // Directional brush streaks.
   float streak = nT(vec2(vXZ.x * 0.06, vXZ.y * 0.22)).b;
   col *= 0.95 + streak * 0.09;
+  // Region mode: every value below blends across a border over a couple of units.
+  vec4 rf = vec4(0.0, 0.0, 1e3, 0.0);
+  float rK = 1.0, life = uLife;
+  if (uRegionsOn > 0.5) {
+    rf = regionField(vXZ);
+    rK = 0.5 + 0.5 * smoothstep(0.0, 1.6, rf.z + (n2.g - 0.5) * 0.8);
+    life = mix(rGet(uRLife, rf.y), rGet(uRLife, rf.x), rK);
+  }
   // Living standards: greener lusher grass; low LIFE dries the land.
-  float dryness = clamp((0.55 - uLife) * 1.8, 0.0, 0.75) + m.g * clamp((0.55 - uEquity) * 1.6, 0.0, 0.5);
+  float dryness = clamp((0.55 - life) * 1.8, 0.0, 0.75) + m.g * clamp((0.55 - uEquity) * 1.6, 0.0, 0.5);
   col = mix(col, mix(cDry, col, 0.3), clamp(dryness, 0.0, 0.85) * (0.5 + 0.5 * smoothstep(0.3, 0.7, n1.b)));
-  col = mix(col, col * vec3(0.96, 1.04, 0.94), clamp((uLife - 0.5) * 1.6, 0.0, 0.6));
+  col = mix(col, col * vec3(0.96, 1.04, 0.94), clamp((life - 0.5) * 1.6, 0.0, 0.6));
   // Rural/urban contrast: low equity desaturates the countryside.
   col = desat(col, m.g * clamp((0.5 - uEquity) * 1.2, 0.0, 0.45));
 
@@ -223,6 +274,42 @@ void main() {
   vec3 dcol = d.rgb / max(d.a, 0.001);
   dcol *= 0.94 + n2.a * 0.12;
   col = mix(col, dcol, d.a * land);
+
+  if (uRegionsOn > 0.5) {
+    // Paddies of a region short of water turn straw-yellow and patchy.
+    float fdry = mix(rGet(uRField, rf.y), rGet(uRField, rf.x), rK);
+    float fm = texture2D(uFieldMask, muv).r * land;
+    vec3 parched = mix(cPaddyDry, cDry, smoothstep(0.35, 0.75, n2.b)) * (0.92 + n1.r * 0.16);
+    col = mix(col, parched, fm * fdry * 0.85);
+    // Status wash: a pigment glaze, strongest in a band along the region's inner edge
+    // (where watercolor pools) and faint inside, so buildings and fields stay readable.
+    vec4 wa = mix(rGet4(uRWash, rf.y), rGet4(uRWash, rf.x), rK);
+    float band = 1.0 - smoothstep(0.0, 6.5 + uCamDist * 0.012, rf.z + (n1.b - 0.5) * 2.5);
+    float pool = 0.22 + 0.78 * band * (0.8 + n2.g * 0.4);
+    col = mix(col, wa.rgb * (0.92 + n1.r * 0.16), clamp(wa.a * pool, 0.0, 1.0) * land);
+    // Hover / selection: the region brightens a touch, others recede when one is selected.
+    float hiA = rGet(uRHi, rf.x), hiB = rGet(uRHi, rf.y);
+    float hi = mix(hiB, hiA, rK);
+    float inner = 1.0 - smoothstep(0.0, 8.0, rf.z);
+    col = mix(col, col * 1.06 + vec3(0.045, 0.04, 0.025), clamp(hi, 0.0, 1.0) * (0.5 + inner * 0.5) * land);
+    float rest = uRSelOn * (1.0 - clamp(hi, 0.0, 1.0));
+    col = mix(col, mix(desat(col, 0.4), cPaper, 0.14), rest * 0.6 * land);
+    // Inked border: a dashed, slightly wobbly brush line; solid and darker around the
+    // hovered / selected region. Never thinner than ~1.3 px.
+    float hb = max(hiA, hiB);
+    float wob = (n2.r - 0.5) * 0.5 + (n1.g - 0.5) * 0.4;
+    // Pixel footprint in world units (rf.z is ~world distance; its own derivative jumps
+    // where the runner-up region switches, so it must not drive the width).
+    float aa = length(fwidth(vXZ)) * 0.75 + 0.001;
+    float halfW = max(0.16 + uCamDist * 0.0019, aa * 0.65) * (1.0 + hb * 0.6);
+    float stroke = 1.0 - smoothstep(halfW - aa * 0.5, halfW + aa * 0.5, abs(rf.z + wob * halfW * 0.5));
+    float dashLen = 2.0 + uCamDist * 0.011;
+    float f = fract(rf.w / dashLen);
+    float dash = smoothstep(0.0, 0.06, f) * (1.0 - smoothstep(0.58, 0.64, f));
+    dash = max(dash, smoothstep(0.3, 0.6, hb));
+    float inkA = stroke * dash * mix(0.5, 0.72, hb) * land * (0.85 + n2.a * 0.3);
+    col = mix(col, cInk, inkA);
+  }
 
   // --- water ---
   float depth = clamp(1.0 - m.a * 2.0, 0.0, 1.0);
@@ -280,6 +367,14 @@ export function createGround(U, { quality = 'high' } = {}) {
       cFoam: { value: vec3(PAL.foam) },
       cPaper: { value: vec3(PAL.paper) },
       cInk: { value: vec3(PAL.ink) },
+      cPaddyDry: { value: vec3(PAL.paddyRipe) },
+      // Region mode (driven by regions.js; ignored while uRegionsOn is 0).
+      uRSeed: { value: SEED_LIST.map((s) => new THREE.Vector4(s.x, s.z, s.w, s.ri)) },
+      uRWash: { value: Array.from({ length: 6 }, () => new THREE.Vector4(1, 1, 1, 0)) },
+      uRHi: { value: [0, 0, 0, 0, 0, 0] },
+      uRField: { value: [0, 0, 0, 0, 0, 0] },
+      uRSelOn: { value: 0 },
+      uFieldMask: { value: paintFieldMask(512) },
     },
   });
   // Map texture V is flipped in the shader (canvas row 0 = z0), so disable flipY on the canvas.

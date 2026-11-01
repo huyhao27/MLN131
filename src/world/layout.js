@@ -1,7 +1,8 @@
 // Hand-authored map of the fictional island republic "Hoa Minh".
 // x grows east (screen right), z grows south (toward the camera). Units ~ meters x 10.
 import { makeRng, fbm2 } from '../core/rng.js';
-import { Occupancy, settle } from './footprint.js';
+import { Occupancy, settle, footOf } from './footprint.js';
+import { regionAt, REGION_IDS } from './regiongeo.js';
 
 // ---------- state rules ----------
 // A rule maps the normalized world state S -> 0..1 (visibility target of a prop).
@@ -14,6 +15,17 @@ export const all = (...rs) => (S) => rs.reduce((a, r) => a * r(S), 1);
 export const any = (...rs) => (S) => (rs.some((r) => r(S) > 0) ? 1 : 0);
 const avg = (...ks) => (S) => ks.reduce((a, k) => a + S[k], 0) / ks.length;
 export const avgAbove = (ks, v) => (S) => (avg(...ks)(S) >= v ? 1 : 0);
+
+// ---------- region-mode rules ----------
+// They read S.R (regionstate.js) and are 0 outside region mode, so classic never sees them.
+const RG = (S, id) => (S.mode === 'regions' ? S.R?.[id] : null);
+export const rShort = (id, fam) => (S) => (RG(S, id)?.short.has(fam) ? 1 : 0);
+export const rBuilt = (id, ...keys) => (S) => { const r = RG(S, id); return r && keys.some((k) => r.built.has(k)) ? 1 : 0; };
+export const rWorks = (id, n = 1) => (S) => ((RG(S, id)?.projects ?? 0) >= n ? 1 : 0);
+export const rAbove = (id, k, v) => (S) => ((RG(S, id)?.[k] ?? -1) >= v ? 1 : 0);
+export const rBelow = (id, k, v) => (S) => { const r = RG(S, id); return r && r[k] < v ? 1 : 0; };
+export const rNot = (rule) => (S) => (S.mode === 'regions' && !(rule(S) > 0) ? 1 : 0);
+export const anyRegionBuilt = (key) => (S) => (S.mode === 'regions' && REGION_IDS.some((id) => S.R?.[id]?.built.has(key)) ? 1 : 0);
 
 // ---------- geography ----------
 export const ISLAND = [
@@ -366,12 +378,199 @@ export function buildProps() {
       const k = forest > 0.4 ? trees.pick(['tree_c', 'pine', 'tree_a']) : rural ? trees.pick(['tree_a', 'palm', 'bamboo', 'tree_b']) : trees.pick(['tree_b', 'tree_a', 'tree_bloom', 'bush']);
       // A share of trees only grows when living standards rise (greenery).
       const grows = trees() < 0.3;
-      occ.add(add(k, x, z, { s: trees.range(0.85, 1.15), flip: trees() < 0.5, show: grows ? above('LIFE', 35 + trees() * 40) : undefined }));
+      occ.add(add(k, x, z, { s: trees.range(0.85, 1.15), flip: trees() < 0.5, show: grows ? above('LIFE', 35 + trees() * 40) : undefined, scatter: true }));
       if (trees() < 0.25) {
         const b = { k: trees.pick(['bush', 'bush_lime', 'rock']), x: x + trees.range(-3, 3), z: z + trees.range(1, 3), s: trees.range(0.8, 1.1) };
-        if (!occ.conflict(b, { roadPad: 1 })) occ.add(add(b.k, b.x, b.z, { s: b.s }));
+        if (!occ.conflict(b, { roadPad: 1 })) occ.add(add(b.k, b.x, b.z, { s: b.s, scatter: true }));
       }
     }
+  }
+  // ===== Region mode works =====
+  // Placed after the classic island is final, so classic placement is untouched. They avoid
+  // every authored prop; scattered trees standing where a work appears yield to it (they are
+  // hidden only while that work is shown, i.e. only in region mode).
+  const rocc = new Occupancy(WALKWAYS);
+  for (const p of P) if (!p.scatter) rocc.add(p);
+  const works = settle(buildRegionProps(), rocc, { log: true });
+  for (const t of P) {
+    if (!t.scatter) continue;
+    const tr = footOf(t);
+    if (!tr) continue;
+    let ys = null;
+    for (const w of works) {
+      const r = footOf(w);
+      if (!r) continue;
+      if (tr.x0 < r.x1 + 0.3 && r.x0 < tr.x1 + 0.3 && tr.z0 < r.z1 + 0.3 && r.z0 < tr.z1 + 0.3) (ys ??= new Set()).add(w);
+    }
+    if (!ys) continue;
+    t.yieldTo = ys;
+    const own = t.show, list = [...ys];
+    t.show = (S) => ((own ? own(S) : 1) > 0 && list.every((w) => !(w.show(S) > 0)) ? 1 : 0);
+  }
+  P.push(...works);
+  for (const p of P) p.region = regionAt(p.x, p.z);
+  return P;
+}
+
+// ---------- region works ----------
+// Built keys that have a dedicated look in a region. Any other finished work lands in that
+// region's spare slots with a generic look for its key.
+// Keys and home regions follow src/regions/data/regions.js (BUILT); the extra entries cover
+// a key finished in another region than its usual one.
+const DEDICATED = {
+  CN: ['power_reserve', 'supplier', 'training', 'heat_link', 'heat_pilot'],
+  NN: ['canal', 'cold_storage', 'cold_small'],
+  TT: ['bridge', 'market', 'training', 'clinic', 'bus_line'],
+  DC: ['housing', 'care_center', 'care_point', 'green_space', 'clinic', 'bus_line'],
+  VC: ['road_vc', 'community_road', 'clinic', 'bridge'],
+  CB: ['berth', 'cold_storage', 'cold_small', 'supplier'],
+};
+const GENERIC_KIND = {
+  canal: 'sluice', cold_storage: 'cold_store', cold_small: 'cold_store', power_reserve: 'substation', housing: 'apt_pink',
+  care_center: 'kindergarten', care_point: 'kindergarten', green_space: 'banyan', clinic: 'clinic', road_vc: 'bus_stop',
+  community_road: 'community_hall', berth: 'warehouse', bridge: 'workshop', bus_line: 'bus_stop', supplier: 'warehouse',
+  training: 'workshop', heat_link: 'tanks', heat_pilot: 'tanks', market: 'stall_teal',
+};
+const SPARE_KINDS = ['workshop', 'warehouse', 'cold_store', 'substation', 'clinic', 'kindergarten', 'apt_pink', 'sluice', 'bus_stop', 'banyan', 'community_hall', 'tanks', 'stall_teal'];
+const extraBuilt = (S, id) => (S.mode === 'regions' ? (S.R?.[id]?.builtList ?? []).filter((k) => !DEDICATED[id].includes(k)) : []);
+const spareRule = (id, i, kind) => (S) => {
+  const k = extraBuilt(S, id)[i];
+  return k != null && (GENERIC_KIND[k] ?? 'workshop') === kind ? 1 : 0;
+};
+export const REGION_DEDICATED = DEDICATED;
+export const REGION_GENERIC_KIND = GENERIC_KIND;
+
+function buildRegionProps() {
+  const P = [];
+  const add = (id, k, x, z, show, o = {}) => {
+    const p = { k, x, z, show, search: 24, keepIn: (px, pz) => regionAt(px, pz) === id, work: id, ...o };
+    P.push(p);
+    return p;
+  };
+  const w1 = (id) => rWorks(id, 1), w2 = (id) => rWorks(id, 2);
+  const roadOpen = (id) => rNot(rShort(id, 'road'));
+
+  // ----- CN: Thien Ha industry -----
+  add('CN', 'substation', 104, 0, rBuilt('CN', 'power_reserve'));
+  add('CN', 'wind_turbine', 114, -44, rBuilt('CN', 'power_reserve'));
+  add('CN', 'warehouse', 40, -10, rBuilt('CN', 'supplier'));
+  add('CN', 'containers', 44, -2, rBuilt('CN', 'supplier'));
+  add('CN', 'workshop', 30, -24, rBuilt('CN', 'training'));
+  add('CN', 'crowd_workers', 30, -18, rBuilt('CN', 'training'));
+  // Waste-heat line to the drying kilns: tanks and a pipe bridge toward the farmland.
+  add('CN', 'tanks', 24, -32, rBuilt('CN', 'heat_link', 'heat_pilot'));
+  add('CN', 'pylon', 18, -28, rBuilt('CN', 'heat_link'));
+  add('CN', 'site_fence', 62, -44, w1('CN'));
+  add('CN', 'scaffold', 104, -54, w2('CN'));
+  add('CN', 'site_fence', 104, -50, w2('CN'));
+
+  // ----- NN: farmland -----
+  add('NN', 'sluice', -49, 9, rBuilt('NN', 'canal'));
+  add('NN', 'sluice', -26, -24, rBuilt('NN', 'canal'));
+  add('NN', 'crowd_farmers', -64, 26, rBuilt('NN', 'canal'));
+  add('NN', 'cold_store', -34, -46, rBuilt('NN', 'cold_storage', 'cold_small'));
+  add('NN', 'truck', -26, -44, rBuilt('NN', 'cold_storage', 'cold_small'));
+  add('NN', 'scaffold', -44, -36, w1('NN'));
+  add('NN', 'crane', -36, -34, w1('NN'));
+  add('NN', 'site_fence', -44, -32, w1('NN'));
+  add('NN', 'scaffold', -44, 58, w2('NN'));
+  add('NN', 'site_fence', -44, 62, w2('NN'));
+  add('NN', 'crowd_farmers', -50, -6, rShort('NN', 'water'));
+  add('NN', 'haystack', -66, 6, rShort('NN', 'water'));
+  // No outlet for the harvest: sacks and crates pile up by the road.
+  add('NN', 'boxes', -36, -12, rShort('NN', 'transport'));
+  add('NN', 'boxes', -60, 32, rShort('NN', 'transport'));
+  add('NN', 'haystack', -22, -44, rShort('NN', 'transport'));
+  add('NN', 'truck', -64, 2, rShort('NN', 'transport'));
+
+  // ----- TT: city centre -----
+  add('TT', 'workshop', -34, 46, rBuilt('TT', 'training'));
+  // Repaired bridge: a footbridge over the avenue south of the high-tech road.
+  add('TT', 'bridge', 8, -10, rBuilt('TT', 'bridge'));
+  // Market day: extra stalls and shoppers.
+  add('TT', 'stall_red', -36, 54, rBuilt('TT', 'market'));
+  add('TT', 'stall_yellow', -31, 56, rBuilt('TT', 'market'));
+  add('TT', 'stall_teal', -26, 60, rBuilt('TT', 'market'));
+  add('TT', 'crowd_a', -32, 60, rBuilt('TT', 'market'));
+  add('TT', 'clinic', -26, 18, rBuilt('TT', 'clinic'));
+  add('TT', 'bus_stop', -24, 9, rBuilt('TT', 'bus_line'));
+  add('TT', 'scaffold', -30, 2, w1('TT'));
+  add('TT', 'crane', -24, -2, w1('TT'));
+  add('TT', 'site_fence', -30, 6, w1('TT'));
+  add('TT', 'scaffold', 4, 62, w2('TT'));
+  add('TT', 'site_fence', 4, 66, w2('TT'));
+  add('TT', 'crowd_elders', -16, 14, rShort('TT', 'care'));
+  add('TT', 'crowd_family', -2, 20, rShort('TT', 'care'));
+
+  // ----- DC: housing -----
+  add('DC', 'apt_pink', 66, 44, rBuilt('DC', 'housing'));
+  // Green space: a small park with a banyan, flowers and families.
+  add('DC', 'banyan', 26, 64, rBuilt('DC', 'green_space'));
+  add('DC', 'flowers', 20, 62, rBuilt('DC', 'green_space'));
+  add('DC', 'flowers', 32, 60, rBuilt('DC', 'green_space'));
+  add('DC', 'bush_lime', 18, 58, rBuilt('DC', 'green_space'));
+  add('DC', 'crowd_family', 24, 60, rBuilt('DC', 'green_space'));
+  add('DC', 'apt_cream', 24, 54, rBuilt('DC', 'housing'));
+  add('DC', 'clinic', 14, 48, rBuilt('DC', 'clinic'));
+  add('DC', 'bus_stop', 40, 30, rBuilt('DC', 'bus_line'));
+  add('DC', 'scaffold', 56, 56, w1('DC'));
+  add('DC', 'crane', 62, 58, w1('DC'));
+  add('DC', 'site_fence', 56, 60, w1('DC'));
+  add('DC', 'scaffold', 36, 62, w2('DC'));
+  add('DC', 'site_fence', 36, 66, w2('DC'));
+  // Housing short: crowded yards, belongings stacked outside.
+  add('DC', 'crowd_a', 28, 26, rShort('DC', 'housing'));
+  add('DC', 'crowd_family', 46, 28, rShort('DC', 'housing'));
+  add('DC', 'crowd_b', 56, 38, rShort('DC', 'housing'));
+  add('DC', 'crowd_family', 18, 44, rShort('DC', 'housing'));
+  add('DC', 'boxes', 34, 38, rShort('DC', 'housing'));
+  add('DC', 'boxes', 52, 46, rShort('DC', 'housing'));
+  add('DC', 'crowd_elders', 30, 48, rShort('DC', 'care'));
+
+  // ----- VC: Ban May highlands -----
+  add('VC', 'road_block', -62, -27, rShort('VC', 'road'));
+  add('VC', 'road_block', -48, -18, rShort('VC', 'road'));
+  add('VC', 'rock', -60, -21, rShort('VC', 'road'));
+  add('VC', 'clinic', -88, -6, rBuilt('VC', 'clinic'));
+  add('VC', 'crowd_farmers', -84, 2, rBuilt('VC', 'clinic'));
+  add('VC', 'bridge', -94.2, 1, rBuilt('VC', 'bridge'));
+  add('VC', 'lamp', -56, -22, all(rBuilt('VC', 'road_vc', 'community_road'), roadOpen('VC')));
+  add('VC', 'lamp', -70, -31, all(rBuilt('VC', 'road_vc', 'community_road'), roadOpen('VC')));
+  add('VC', 'bus_stop', -66, -24, all(rBuilt('VC', 'road_vc', 'community_road'), roadOpen('VC')));
+  add('VC', 'scaffold', -70, -6, w1('VC'));
+  add('VC', 'site_fence', -70, -2, w1('VC'));
+  add('VC', 'scaffold', -108, -34, w2('VC'));
+  add('VC', 'site_fence', -108, -30, w2('VC'));
+  add('VC', 'crowd_elders', -80, -18, rShort('VC', 'care'));
+
+  // ----- CB: coast and port -----
+  add('CB', 'gantry', 76, 58, rBuilt('CB', 'berth'));
+  add('CB', 'containers', 82, 52, rBuilt('CB', 'berth'));
+  add('CB', 'ship', 84, 73, rBuilt('CB', 'berth'), { keepIn: null });
+  add('CB', 'cold_store', 118, 40, rBuilt('CB', 'cold_storage', 'cold_small'));
+  add('CB', 'warehouse', 110, 20, rBuilt('CB', 'supplier'));
+  add('CB', 'scaffold', 120, 12, w1('CB'));
+  add('CB', 'crane', 126, 18, w1('CB'));
+  add('CB', 'site_fence', 120, 16, w1('CB'));
+  add('CB', 'scaffold', 96, 26, w2('CB'));
+  add('CB', 'site_fence', 96, 30, w2('CB'));
+  // Transport short: boxes pile up, trucks queue at the gate.
+  add('CB', 'containers', 88, 36, rShort('CB', 'transport'));
+  add('CB', 'containers', 100, 36, rShort('CB', 'transport'));
+  add('CB', 'containers', 112, 44, rShort('CB', 'transport'));
+  add('CB', 'truck', 76, 46, rShort('CB', 'transport'));
+  add('CB', 'truck', 70, 47, rShort('CB', 'transport'));
+  add('CB', 'truck', 64, 46, rShort('CB', 'transport'));
+
+  // ----- Spare slots: any other finished work, generic look by key -----
+  const SPARE = {
+    CN: [[100, -36], [36, -30]], NN: [[-62, 46], [-20, -66]], TT: [[-14, -14], [-6, 66]],
+    DC: [[70, 34], [44, 58]], VC: [[-112, -20], [-66, -50]], CB: [[124, 34], [90, 30]],
+  };
+  for (const id of REGION_IDS) {
+    SPARE[id].forEach(([x, z], i) => {
+      for (const kind of SPARE_KINDS) add(id, kind, x, z, spareRule(id, i, kind), { alt: `spare-${id}-${i}` });
+    });
   }
   return P;
 }
@@ -444,6 +643,19 @@ export function buildMovers() {
     for (let i = 0; i < w.n; i++) {
       M.push({ k: w.keys[i % w.keys.length], id: w.id, path: w.path, offset: i / w.n, speed: 1.1 + (i % 3) * 0.2, laneOff: w.laneOff, walker: true, show: above(w.metric, (w.base ?? 25) + (i * 47) % 50) });
     }
+  }
+
+  // Region mode traffic: the road up to Ban May runs once it is open and served; the bus
+  // line runs on the main avenue once any region has finished it.
+  const vcBuilt = rBuilt('VC', 'road_vc', 'community_road');
+  const vcRoad = all(rNot(rShort('VC', 'road')), any(vcBuilt, rAbove('VC', 'access', 40)));
+  ['car_red', 'truck', 'car_white'].forEach((k, i) => M.push({ k, id: 'vc-road', path: [...ROADS[4].pts.slice(0, 4), [-76, -38.5]], offset: i / 3, speed: 4.5, laneOff: -laneOf(4), show: i === 0 ? vcRoad : all(vcRoad, any(vcBuilt, rAbove('VC', 'access', 50 + i * 10))) }));
+  for (let i = 0; i < 2; i++) M.push({ k: 'bus', id: 'bus-line', path: ROADS[1].pts, offset: 0.2 + i / 2, speed: 5, laneOff: -laneOf(1), show: anyRegionBuilt('bus_line') });
+
+  // A mover whose whole route lies in one region follows that region's values.
+  for (const m of M) {
+    const ids = new Set(m.path.map(([x, z]) => regionAt(x, z)));
+    m.region = ids.size === 1 ? [...ids][0] : null;
   }
   return M;
 }

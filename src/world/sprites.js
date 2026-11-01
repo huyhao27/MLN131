@@ -1145,6 +1145,176 @@ function windTurbine(p) {
   disc(p.ctx, t[0], t[1], 0.2 * p.s, '#c9c4b8');
 }
 
+// ---------- region mode: projects, finished works, shortages ----------
+// Construction hoarding: plywood panels with a striped band and a hazard lamp.
+function siteFence(p) {
+  const c = p.ctx;
+  const n = 5;
+  const pw = (p.W - 0.4) / n;
+  for (let i = 0; i < n; i++) {
+    const u = -p.W / 2 + 0.2 + i * pw;
+    wash(c, pts(p, [[u, 0], [u + pw - 0.06, 0], [u + pw - 0.06, 1.5], [u, 1.5]]), i % 2 ? '#d8c9a4' : '#cdbd96', p.rng, { outline: 0.3, dabs: 0.4 });
+  }
+  c.save();
+  polyClip(c, pts(p, [[-p.W / 2 + 0.2, 1.1], [p.W / 2 - 0.2, 1.1], [p.W / 2 - 0.2, 1.42], [-p.W / 2 + 0.2, 1.42]]));
+  for (let u = -p.W / 2; u < p.W / 2 + 1; u += 0.6) {
+    const a = P(p, u, 1.0), b = P(p, u + 0.45, 1.5);
+    line(c, a[0], a[1], b[0], b[1], PAL.accentOrange, 0.28 * p.s);
+  }
+  c.restore();
+  const [lx, ly] = P(p, p.W / 2 - 0.5, 1.75);
+  disc(c, lx, ly, 0.16 * p.s, PAL.accentOrange);
+  glowDot(p.emit, lx, ly, 0.4 * p.s, 0.9);
+}
+
+// Road closed: striped barrier on two legs, cones and a fallen-rock heap.
+function roadBlock(p) {
+  const c = p.ctx;
+  for (const [u, r] of [[0.9, 0.55], [1.55, 0.42], [0.35, 0.38]]) {
+    const b = lobedBlob(...P(p, u, r * 0.7), r * p.s, p.rng, { lobes: 5, depth: 0.2, squash: 0.75 });
+    wash(c, b, p.rng.pick(['#8c8478', '#a39a8b', '#7b7468']), p.rng, { smooth: true, outline: 0.35 });
+  }
+  for (const u of [-1.3, -0.1]) {
+    const a = P(p, u, 0), b = P(p, u, 1.0);
+    line(c, a[0], a[1], b[0], b[1], '#5a5560', 0.14 * p.s);
+  }
+  const bar = pts(p, [[-1.6, 0.75], [0.2, 0.75], [0.2, 1.15], [-1.6, 1.15]]);
+  wash(c, bar, '#f4efe2', p.rng, { outline: 0.4, pool: 0 });
+  c.save(); polyClip(c, bar);
+  for (let u = -1.8; u < 0.4; u += 0.45) {
+    const a = P(p, u, 0.7), b = P(p, u + 0.3, 1.2);
+    line(c, a[0], a[1], b[0], b[1], PAL.accentRed, 0.2 * p.s);
+  }
+  c.restore();
+  for (const u of [-1.9, 0.5]) {
+    wash(c, pts(p, [[u - 0.22, 0], [u + 0.22, 0], [u, 0.62]]), PAL.accentOrange, p.rng, { outline: 0.35, pool: 0 });
+    const a = P(p, u - 0.12, 0.3), b = P(p, u + 0.12, 0.3);
+    line(c, a[0], a[1], b[0], b[1], '#ffffff', 0.08 * p.s);
+  }
+  const [lx, ly] = P(p, -0.7, 1.3);
+  disc(c, lx, ly, 0.13 * p.s, PAL.accentRed);
+  glowDot(p.emit, lx, ly, 0.35 * p.s, 0.9);
+}
+
+// Cold storage: insulated white hall, blue band, roof chillers.
+function coldStore(p) {
+  const b = box(p, { x: -0.4, w: p.W - 2.2, h: 3.2, d: 1.8, wall: '#eef1ef', topCol: '#d7dfe0' });
+  wash(p.ctx, pts(p, [[b.l, 2.3], [b.r, 2.3], [b.r, 2.75], [b.l, 2.75]]), PAL.accentBlue, p.rng, { outline: 0.2 });
+  for (let i = 0; i < 3; i++) {
+    const u = b.l + 1.0 + i * 2.2;
+    wash(p.ctx, pts(p, [[u, 0], [u + 1.5, 0], [u + 1.5, 1.6], [u, 1.6]]), '#9fb2bb', p.rng, { outline: 0.3, pool: 0.15 });
+    for (let k = 1; k < 4; k++) {
+      const a = P(p, u, k * 0.4), c2 = P(p, u + 1.5, k * 0.4);
+      line(p.ctx, a[0], a[1], c2[0], c2[1], '#7d909a', 1, 0.6);
+    }
+  }
+  for (let i = 0; i < 2; i++) {
+    const cb = box(p, { x: b.l + 1.6 + i * 2.6, y: b.t + 0.2, w: 1.6, h: 0.8, d: 0.6, wall: '#c3cbcd', outline: 0.3 });
+    const [x, y] = P(p, cb.x, cb.y + 0.4);
+    disc(p.ctx, x, y, 0.28 * p.s, '#8b979c');
+  }
+  glowDot(p.emit, ...P(p, b.r - 0.6, 2.0), 0.4 * p.s, 0.7);
+}
+
+// Power reserve: substation frame, transformer and a row of battery cabinets.
+function substation(p) {
+  const c = p.ctx;
+  for (let i = 0; i < 4; i++) {
+    const bb = box(p, { x: -p.W / 2 + 1.0 + i * 1.5, w: 1.3, h: 1.3, d: 0.6, wall: i % 2 ? '#7fa59a' : '#86ad9f', outline: 0.3 });
+    const [x, y] = P(p, bb.x, 0.9);
+    disc(c, x, y, 0.1 * p.s, '#cfe9a8');
+    glowDot(p.emit, x, y, 0.25 * p.s, 0.9);
+  }
+  const L = 0.6, R = p.W / 2 - 0.4;
+  for (const u of [L, (L + R) / 2, R]) {
+    const a = P(p, u, 0), b = P(p, u, 3.4);
+    line(c, a[0], a[1], b[0], b[1], '#6f737a', 0.14 * p.s);
+  }
+  for (const v of [2.4, 3.3]) {
+    const a = P(p, L - 0.2, v), b = P(p, R + 0.2, v);
+    line(c, a[0], a[1], b[0], b[1], '#6f737a', 0.12 * p.s);
+  }
+  const t = box(p, { x: (L + R) / 2, w: 1.8, h: 1.5, d: 0.7, wall: '#8d96a0', outline: 0.35 });
+  for (let k = 0; k < 3; k++) {
+    const [x, y] = P(p, t.l + 0.4 + k * 0.5, t.t + 0.3);
+    line(c, x, y, x, y - 0.5 * p.s, '#c9a46a', 0.1 * p.s);
+  }
+}
+
+// Clinic: small white health post with a green plus and an awning.
+function clinic(p) {
+  const b = box(p, { x: -0.3, w: p.W - 1.8, h: 2.8, d: 1.6, wall: '#f6f4ee', top: false });
+  windows(p, b, { rows: 1, cols: 3, mx: 0.5, mb: 1.1, mt: 0.6, gap: 0.6, lit: 0.8, color: '#5d8a94' });
+  gable(p, b, { color: PAL.accentTeal, rise: 1.0, over: 0.4, tiles: false });
+  wash(p.ctx, pts(p, [[b.x - 1.0, 1.0], [b.x + 1.0, 1.0], [b.x + 1.3, 1.35], [b.x - 1.3, 1.35]]), PAL.accentTeal, p.rng, { outline: 0.3 });
+  door(p, b.x, 1.0, 1.0, PAL.glassDeep);
+  const [cx, cy] = P(p, b.r - 0.9, b.t - 0.75);
+  const s = 0.35 * p.s;
+  p.ctx.fillStyle = '#3fa05a';
+  p.ctx.fillRect(cx - s, cy - s * 0.33, s * 2, s * 0.66);
+  p.ctx.fillRect(cx - s * 0.33, cy - s, s * 0.66, s * 2);
+}
+
+// Sluice gate over a lined canal: the finished irrigation channel.
+function sluice(p) {
+  const c = p.ctx;
+  wash(c, pts(p, [[-p.W / 2 + 0.2, 0], [p.W / 2 - 0.2, 0], [p.W / 2 - 0.6, 0.55], [-p.W / 2 + 0.6, 0.55]]), PAL.paddyWater, p.rng, { outline: 0.3, pool: 0.2 });
+  for (let i = 0; i < 4; i++) {
+    const u = -p.W / 2 + 0.8 + i * 0.9;
+    const a = P(p, u, 0.2), b = P(p, u + 0.5, 0.25);
+    line(c, a[0], a[1], b[0], b[1], '#e8f2ee', 0.07 * p.s, 0.8);
+  }
+  for (const u of [-1.0, 1.0]) wash(c, pts(p, [[u - 0.3, 0.2], [u + 0.3, 0.2], [u + 0.3, 2.2], [u - 0.3, 2.2]]), '#bdb5a5', p.rng, { outline: 0.35 });
+  wash(c, pts(p, [[-0.7, 0.6], [0.7, 0.6], [0.7, 1.5], [-0.7, 1.5]]), '#5d7c94', p.rng, { outline: 0.35 });
+  wash(c, pts(p, [[-1.4, 2.1], [1.4, 2.1], [1.4, 2.45], [-1.4, 2.45]]), '#a9a196', p.rng, { outline: 0.35 });
+  const [wx, wy] = P(p, 0, 2.75);
+  c.strokeStyle = PAL.accentRed; c.lineWidth = 0.1 * p.s;
+  c.beginPath(); c.arc(wx, wy, 0.3 * p.s, 0, Math.PI * 2); c.stroke();
+}
+
+// Footbridge over the river (stands on both banks).
+function bridge(p) {
+  const c = p.ctx;
+  const deck = [];
+  for (let k = 0; k <= 12; k++) deck.push([-p.W / 2 + 0.2 + (p.W - 0.4) * k / 12, 0.9 + Math.sin(Math.PI * k / 12) * 0.7]);
+  wash(c, pts(p, [...deck, ...deck.slice().reverse().map(([u, v]) => [u, v - 0.35])]), PAL.woodLight, p.rng, { outline: 0.4 });
+  for (let k = 0; k <= 12; k += 2) {
+    const [u, v] = deck[k];
+    const a = P(p, u, v), b = P(p, u, v + 0.8);
+    line(c, a[0], a[1], b[0], b[1], PAL.woodDark, 0.09 * p.s);
+  }
+  c.strokeStyle = PAL.woodDark; c.lineWidth = 0.08 * p.s;
+  c.beginPath(); deck.forEach(([u, v], i) => { const q = P(p, u, v + 0.8); if (i) c.lineTo(...q); else c.moveTo(...q); }); c.stroke();
+  for (const u of [-p.W / 2 + 0.6, p.W / 2 - 0.6]) wash(c, pts(p, [[u - 0.35, 0], [u + 0.35, 0], [u + 0.35, 1.0], [u - 0.35, 1.0]]), '#a9a196', p.rng, { outline: 0.35 });
+}
+
+// Bus stop shelter with a route sign.
+function busStop(p) {
+  const c = p.ctx;
+  wash(c, pts(p, [[-1.4, 0], [1.2, 0], [1.2, 1.9], [-1.4, 1.9]]), '#c7d7da', p.rng, { outline: 0.35, pool: 0.1 });
+  wash(c, pts(p, [[-1.7, 1.9], [1.5, 1.9], [1.7, 2.25], [-1.5, 2.25]]), PAL.accentGreen, p.rng, { outline: 0.4 });
+  wash(c, pts(p, [[-1.1, 0.45], [0.9, 0.45], [0.9, 0.62], [-1.1, 0.62]]), PAL.wood, p.rng, { outline: 0.3 });
+  const a = P(p, 1.7, 0), b = P(p, 1.7, 2.6);
+  line(c, a[0], a[1], b[0], b[1], '#4c4f5a', 0.1 * p.s);
+  const [x, y] = P(p, 1.7, 2.6);
+  disc(c, x, y, 0.32 * p.s, PAL.accentGreen);
+  disc(c, x, y, 0.18 * p.s, '#f4efe2');
+  glowDot(p.emit, ...P(p, -0.1, 1.2), 0.6 * p.s, 0.5);
+}
+
+// Training workshop: saw-tooth roof hall with big glazed doors.
+function workshop(p) {
+  const b = box(p, { x: -0.4, w: p.W - 2.0, h: 2.8, d: 1.8, wall: '#e3c79a', top: false });
+  const teeth = 4, tw = b.w / teeth;
+  for (let i = 0; i < teeth; i++) {
+    const u = b.l + i * tw;
+    wash(p.ctx, pts(p, [[u, b.t], [u + tw, b.t], [u + tw, b.t + 1.3]]), i % 2 ? '#8a6a5a' : '#9a7564', p.rng, { outline: 0.3 });
+    wash(p.ctx, pts(p, [[u + tw * 0.62, b.t + 0.15], [u + tw * 0.95, b.t + 0.15], [u + tw * 0.95, b.t + 1.1]]), PAL.glass, p.rng, { outline: 0, pool: 0 });
+  }
+  windows(p, b, { rows: 1, cols: 3, mx: 0.6, mb: 0.2, mt: 0.6, gap: 0.7, lit: 0.9, color: PAL.glassDeep });
+  wash(p.ctx, pts(p, [[b.l, b.t - 0.5], [b.r, b.t - 0.5], [b.r, b.t - 0.15], [b.l, b.t - 0.15]]), PAL.accentBlue, p.rng, { outline: 0.2 });
+}
+
 // ---------- catalog ----------
 // w, h: card size in world units. s: px per unit. Options: plant, sway, glow (channel), shadow, smoke anchors.
 export const SPRITES = {
@@ -1214,6 +1384,16 @@ export const SPRITES = {
   boxes: { w: 2.4, h: 1.5, paint: boxes },
   bunting: { w: 9, h: 3.4, paint: bunting, sway: 0.05, shadow: 0 },
   wind_turbine: { w: 5.4, h: 11, paint: windTurbine, shadow: 0.2 },
+  // Region mode: works in progress, finished works, shortages.
+  site_fence: { w: 7.2, h: 2.2, paint: siteFence, shadow: 0.4 },
+  road_block: { w: 4.4, h: 1.8, paint: roadBlock, shadow: 0.5 },
+  cold_store: { w: 11, h: 5.2, paint: coldStore, glow: 1 },
+  substation: { w: 9, h: 4.2, paint: substation, shadow: 0.6 },
+  clinic: { w: 8, h: 4.8, paint: clinic, glow: 3 },
+  sluice: { w: 5, h: 3.2, paint: sluice, shadow: 0.4 },
+  bridge: { w: 12, h: 2.6, paint: bridge, shadow: 0 },
+  bus_stop: { w: 4, h: 2.9, paint: busStop, glow: 2, shadow: 0.5 },
+  workshop: { w: 11, h: 5.2, paint: workshop, glow: 3 },
 
   // Moving / living things.
   rider: { w: 2.4, h: 2.2, paint: rider, glow: 2 },

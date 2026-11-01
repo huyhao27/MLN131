@@ -1,7 +1,9 @@
 // Standalone playground for the diorama (world-demo.html).
 // Keys: ←/→ cycle sites, 0-9 jump to site, G/B/N pulse good/bad/neutral,
 // Q toggle quality, H hide panel, R random state, D layout debug overlay (+ validation in console).
+// M switches to the region-mode bench (demo-regions.js); ?mode=regions starts there.
 import { createDiorama, SITE_IDS } from './index.js';
+import { mountRegionBench } from './demo-regions.js';
 
 const canvas = document.getElementById('world');
 const world = createDiorama(canvas);
@@ -98,6 +100,8 @@ function go(i) {
 
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  // Region bench owns digits / arrows / R / H while region mode runs.
+  if (world.mode === 'regions' && (/^[0-9]$/.test(e.key) || e.key.startsWith('Arrow') || e.key === 'r' || e.key === 'h')) return;
   if (e.key === 'ArrowRight') go(siteIndex + 1);
   else if (e.key === 'ArrowLeft') go(siteIndex - 1);
   else if (/^[0-9]$/.test(e.key)) go(Number(e.key));
@@ -130,13 +134,15 @@ siteIndex = startSite >= 0 ? startSite : 0;
 world.focus(SITE_IDS[siteIndex], { instant: true });
 sitesEl.querySelectorAll('button')[siteIndex].classList.add('on');
 
+window.__bench = mountRegionBench(world, { panelEl: panel, start: qs.get('mode') === 'regions' });
+
 // FPS readout.
 const fpsEl = document.getElementById('fps');
 let frames = 0, t0 = performance.now();
 (function tick(now) {
   frames++;
   if (now - t0 > 1000) {
-    fpsEl.textContent = `${Math.round((frames * 1000) / (now - t0))} fps · ${world.site} · ${world.quality}`;
+    fpsEl.textContent = `${Math.round((frames * 1000) / (now - t0))} fps · ${world.mode} · ${world.site} · ${world.quality}`;
     frames = 0;
     t0 = now;
   }

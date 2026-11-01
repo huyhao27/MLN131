@@ -2,16 +2,17 @@
 // fixed-pitch camera (computed in the vertex shader), plus a painted soft shadow layer
 // that shares the same instance attributes.
 import * as THREE from 'three';
-import { GLSL_COMMON } from './glsl.js';
+import { GLSL_COMMON, GLSL_REGION_CARDS } from './glsl.js';
 import { vec3 } from './palette.js';
 import { easeOutBack } from '../core/math.js';
 
 const cardVert = /* glsl */ `
+${GLSL_REGION_CARDS}
 attribute vec3 aPos;
 attribute vec2 aSize;
 attribute vec4 aUv;
 attribute vec4 aA; // grow, sway, glow channel, plant
-attribute vec4 aB; // bob, seed, shadow scale, -
+attribute vec4 aB; // bob, seed, shadow scale, region index + 1 (0 = none)
 uniform float uTime;
 uniform float uPitch;
 uniform float uYaw;
@@ -22,6 +23,7 @@ varying float vGlow;
 varying float vPlant;
 varying float vDepth;
 varying vec3 vW;
+varying float vRLife;
 void main() {
   vec2 q = position.xy;
   float g = aA.x;
@@ -36,6 +38,12 @@ void main() {
   vQ = q;
   float ch = aA.z;
   vGlow = ch < 0.5 ? 0.0 : (ch < 1.5 ? uGlow.x : (ch < 2.5 ? uGlow.y : (ch < 3.5 ? uGlow.z : uGlow.w)));
+  // Region mode: wellbeing and window light of the card's own region.
+  vRLife = -1.0;
+  if (uRegionsOn > 0.5 && aB.w > 0.5) {
+    vGlow *= rPick(uRGlow, aB.w - 1.0, 1.0);
+    vRLife = rPick(uRLife, aB.w - 1.0, 0.5);
+  }
   vPlant = aA.w;
   vW = wp;
   vec4 mv = viewMatrix * vec4(wp, 1.0);
@@ -56,8 +64,10 @@ varying float vGlow;
 varying float vPlant;
 varying float vDepth;
 varying vec3 vW;
+varying float vRLife;
 void main() {
   vec4 t = texture2D(uAtlas, vUv);
+  float life = vRLife < 0.0 ? uLife : vRLife;
   float a = t.a;
 #ifdef USE_A2C
   a = clamp((a - 0.5) / max(fwidth(a), 0.0001) + 0.5, 0.0, 1.0);
@@ -69,9 +79,9 @@ void main() {
   if (uFade < 0.999 && bayer4(gl_FragCoord.xy) > uFade) discard;
   vec3 col = t.rgb / max(t.a, 0.001);
   // Plants dry out and yellow when living standards fall.
-  float dry = vPlant * clamp((0.5 - uLife) * 1.4, 0.0, 0.6);
+  float dry = vPlant * clamp((0.5 - life) * 1.4, 0.0, 0.6);
   col = mix(col, desat(col, 0.45) * vec3(1.1, 0.98, 0.78), dry);
-  col = mix(col, col * vec3(0.95, 1.05, 0.93), vPlant * clamp((uLife - 0.55) * 1.5, 0.0, 0.5));
+  col = mix(col, col * vec3(0.95, 1.05, 0.93), vPlant * clamp((life - 0.55) * 1.5, 0.0, 0.5));
   // Contact darkening at the foot of each card.
   col *= mix(0.8, 1.0, smoothstep(0.0, 0.16, vQ.y));
   // Lit windows.
@@ -206,7 +216,7 @@ export class CardLayer {
     g.aUv.setXYZW(i, ...r.uv);
     const glow = spec.glowCh ?? def.glow ?? 0;
     g.aA.setXYZW(i, 1, (def.sway ?? 0) * (spec.swayMul ?? 1), glow, def.plant ?? 0);
-    g.aB.setXYZW(i, spec.bob ?? 0, spec.seed ?? Math.random(), def.shadow ?? 1, 0);
+    g.aB.setXYZW(i, spec.bob ?? 0, spec.seed ?? Math.random(), def.shadow ?? 1, spec.regionIndex != null ? spec.regionIndex + 1 : 0);
     this.geometry.instanceCount = this.count;
     this.dirty = true;
     return i;
