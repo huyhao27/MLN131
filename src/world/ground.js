@@ -7,7 +7,7 @@ import { PAL, vec3, rgba, shade, mix } from './palette.js';
 import { makeCanvas } from './paint.js';
 import { landField, ROADS, RIVER, RESERVOIR, ZONES, DOCKS, FIELDS, distPolyline } from './layout.js';
 import { GLSL_COMMON } from './glsl.js';
-import { GLSL_REGION, SEED_LIST } from './regiongeo.js';
+import { regionField, REGION_FIELD_RECT } from './regiongeo.js';
 
 export const MAP = { x0: -200, z0: -150, size: 400 };
 
@@ -160,6 +160,34 @@ function paintDetail(res) {
   return tex;
 }
 
+// Region field for region mode: index texture (nearest: region, runner-up) and a linear
+// half-float texture (distance to the border, coordinate along it). Two fetches per pixel
+// instead of evaluating every seed in the shader.
+function bakeRegionField(texelsPerUnit) {
+  const R = REGION_FIELD_RECT;
+  const w = Math.round(R.w * texelsPerUnit), h = Math.round(R.h * texelsPerUnit);
+  const ids = new Uint8Array(w * h * 4);
+  const field = new Uint16Array(w * h * 4);
+  const half = THREE.DataUtils.toHalfFloat;
+  for (let j = 0; j < h; j++) {
+    const z = R.z0 + ((j + 0.5) / h) * R.h;
+    for (let i = 0; i < w; i++) {
+      const x = R.x0 + ((i + 0.5) / w) * R.w;
+      const f = regionField(x, z);
+      const o = (j * w + i) * 4;
+      ids[o] = f.index * 40; ids[o + 1] = f.secondIndex * 40; ids[o + 3] = 255;
+      field[o] = half(Math.min(f.dist, 60)); field[o + 1] = half(f.along); field[o + 2] = 0; field[o + 3] = half(1);
+    }
+  }
+  const tIds = new THREE.DataTexture(ids, w, h, THREE.RGBAFormat);
+  tIds.magFilter = tIds.minFilter = THREE.NearestFilter;
+  tIds.needsUpdate = true;
+  const tField = new THREE.DataTexture(field, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
+  tField.magFilter = tField.minFilter = THREE.LinearFilter;
+  tField.needsUpdate = true;
+  return { ids: tIds, field: tField, rect: new THREE.Vector4(R.x0, R.z0, R.w, R.h) };
+}
+
 // Paddy coverage only (region mode dries the fields of a region short of water).
 function paintFieldMask(res) {
   const c = makeCanvas(res, res);
@@ -196,12 +224,15 @@ void main() {
 
 const frag = /* glsl */ `
 ${GLSL_COMMON}
-${GLSL_REGION}
+uniform sampler2D uRIds;
+uniform sampler2D uRField;
+uniform vec4 uRRect;
 uniform float uRegionsOn;
 uniform float uRLife[6];
 uniform vec4 uRWash[6];
 uniform float uRHi[6];
-uniform float uRField[6];
+uniform float uRPulse[6];
+uniform float uRFieldDry[6];
 uniform float uRSelOn;
 uniform sampler2D uFieldMask;
 uniform vec3 cPaddyDry;
@@ -227,6 +258,14 @@ vec4 rGet4(vec4 a[6], float i) {
   vec4 v = vec4(0.0);
   for (int k = 0; k < 6; k++) if (abs(i - float(k)) < 0.5) v = a[k];
   return v;
+}
+
+// (region index, runner-up index, distance to their border, coordinate along it)
+vec4 regionField(vec2 xz) {
+  vec2 uv = (xz - uRRect.xy) / uRRect.zw;
+  vec2 ab = floor(texture2D(uRIds, uv).rg * 255.0 / 40.0 + 0.5);
+  vec2 f = texture2D(uRField, uv).rg;
+  return vec4(ab, f);
 }
 
 void main() {
@@ -277,7 +316,7 @@ void main() {
 
   if (uRegionsOn > 0.5) {
     // Paddies of a region short of water turn straw-yellow and patchy.
-    float fdry = mix(rGet(uRField, rf.y), rGet(uRField, rf.x), rK);
+    float fdry = mix(rGet(uRFieldDry, rf.y), rGet(uRFieldDry, rf.x), rK);
     float fm = texture2D(uFieldMask, muv).r * land;
     vec3 parched = mix(cPaddyDry, cDry, smoothstep(0.35, 0.75, n2.b)) * (0.92 + n1.r * 0.16);
     col = mix(col, parched, fm * fdry * 0.85);
@@ -301,14 +340,28 @@ void main() {
     // Pixel footprint in world units (rf.z is ~world distance; its own derivative jumps
     // where the runner-up region switches, so it must not drive the width).
     float aa = length(fwidth(vXZ)) * 0.75 + 0.001;
-    float halfW = max(0.16 + uCamDist * 0.0019, aa * 0.65) * (1.0 + hb * 0.6);
+    float halfW = max(0.2 + uCamDist * 0.0024, aa * 0.75) * (1.0 + hb * 0.5);
     float stroke = 1.0 - smoothstep(halfW - aa * 0.5, halfW + aa * 0.5, abs(rf.z + wob * halfW * 0.5));
     float dashLen = 2.0 + uCamDist * 0.011;
     float f = fract(rf.w / dashLen);
     float dash = smoothstep(0.0, 0.06, f) * (1.0 - smoothstep(0.58, 0.64, f));
     dash = max(dash, smoothstep(0.3, 0.6, hb));
-    float inkA = stroke * dash * mix(0.5, 0.72, hb) * land * (0.85 + n2.a * 0.3);
+    float inkA = stroke * dash * mix(0.62, 0.8, hb) * land * (0.85 + n2.a * 0.3);
     col = mix(col, cInk, inkA);
+    // Status edge: a coloured line just inside each region's border (own region's colour):
+    // urgent red pulses and glows, attention amber, opportunity teal, stable none. The
+    // selected region gets a bright warm outline instead.
+    vec4 own = rGet4(uRWash, rf.x);
+    float pulse = rGet(uRPulse, rf.x);
+    float beat = 0.5 + 0.5 * sin(uTime * 4.2);
+    float lw = halfW * (1.6 + pulse * beat * 0.9);
+    float d0 = halfW * 1.1;
+    float edgeLine = smoothstep(d0 - aa, d0 + aa * 0.5, rf.z) * (1.0 - smoothstep(d0 + lw - aa * 0.5, d0 + lw + aa, rf.z));
+    float glow = (1.0 - smoothstep(d0, d0 + lw * 4.0, rf.z)) * pulse * (0.25 + 0.35 * beat);
+    float stA = clamp(own.a * 1.7, 0.0, 0.95) * (1.0 - pulse * 0.3 + pulse * 0.3 * beat);
+    col = mix(col, own.rgb * 0.92, clamp(edgeLine * stA + glow * own.a * 1.4, 0.0, 1.0) * land);
+    float selA = smoothstep(0.75, 1.0, rGet(uRHi, rf.x));
+    col = mix(col, vec3(1.0, 0.95, 0.72), edgeLine * selA * 0.95 * land);
   }
 
   // --- water ---
@@ -346,6 +399,7 @@ void main() {
 export function createGround(U, { quality = 'high' } = {}) {
   const maskRes = quality === 'low' ? 512 : 768;
   const detailRes = quality === 'low' ? 1536 : 2048;
+  const rfield = bakeRegionField(2);
   const material = new THREE.ShaderMaterial({
     vertexShader: vert,
     fragmentShader: frag,
@@ -369,10 +423,13 @@ export function createGround(U, { quality = 'high' } = {}) {
       cInk: { value: vec3(PAL.ink) },
       cPaddyDry: { value: vec3(PAL.paddyRipe) },
       // Region mode (driven by regions.js; ignored while uRegionsOn is 0).
-      uRSeed: { value: SEED_LIST.map((s) => new THREE.Vector4(s.x, s.z, s.w, s.ri)) },
+      uRIds: { value: rfield.ids },
+      uRField: { value: rfield.field },
+      uRRect: { value: rfield.rect },
       uRWash: { value: Array.from({ length: 6 }, () => new THREE.Vector4(1, 1, 1, 0)) },
       uRHi: { value: [0, 0, 0, 0, 0, 0] },
-      uRField: { value: [0, 0, 0, 0, 0, 0] },
+      uRPulse: { value: [0, 0, 0, 0, 0, 0] },
+      uRFieldDry: { value: [0, 0, 0, 0, 0, 0] },
       uRSelOn: { value: 0 },
       uFieldMask: { value: paintFieldMask(512) },
     },

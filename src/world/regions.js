@@ -34,7 +34,7 @@ export function regionShot(id, aspect = 16 / 9) {
   const cx = (b.x0 + b.x1) / 2 * 0.5 + b.cx * 0.5, cz = (b.z0 + b.z1) / 2 * 0.5 + b.cz * 0.5;
   const W = b.x1 - b.x0 + 10, D = b.z1 - b.z0 + 10;
   const dW = W / (0.5 * 2 * TAN * a);
-  const dD = D / (0.66 * (2 * TAN / Math.sin(PITCH)));
+  const dD = D / (0.78 * (2 * TAN / Math.sin(PITCH)));
   return { x: cx, z: cz, d: clamp(Math.max(dW, dD), 80, 280), fx: -0.38, fy: 0.02 };
 }
 // Whole island, centred (no panel open on the map screen).
@@ -215,7 +215,7 @@ export class RegionLayer {
     this.selected = null;
     this.R = null;
     // Eased per-region values.
-    this.cur = REGION_IDS.map(() => ({ wash: [1, 1, 1, 0], hi: 0, life: 0.5, glow: 1, field: 0, smoke: 0.5 }));
+    this.cur = REGION_IDS.map(() => ({ wash: [1, 1, 1, 0], hi: 0, pulse: 0, life: 0.5, glow: 1, field: 0, smoke: 0.5 }));
     this.selOn = 0;
     this._v = new THREE.Vector3();
     this._ray = new THREE.Raycaster();
@@ -243,6 +243,7 @@ export class RegionLayer {
     const parts = r.short.has('components') ? 0.45 : r.tight.has('components') ? 0.8 : 1;
     return {
       wash: STATUS_WASH[r.status] ?? STATUS_WASH.stable,
+      pulse: r.status === 'urgent' ? 1 : 0,
       hi,
       life: r.wellbeing / 100,
       glow: power * (0.6 + 0.4 * parts) * clamp(0.35 + r.output / 100 * 0.85, 0.2, 1.2),
@@ -270,7 +271,9 @@ export class RegionLayer {
       c.smoke += (t.smoke - c.smoke) * k;
       this.G.uRWash.value[i].set(c.wash[0], c.wash[1], c.wash[2], c.wash[3]);
       this.G.uRHi.value[i] = c.hi;
-      this.G.uRField.value[i] = c.field;
+      c.pulse += ((t.pulse ?? 0) - c.pulse) * k;
+      this.G.uRPulse.value[i] = c.pulse;
+      this.G.uRFieldDry.value[i] = c.field;
       this.U.uRLife.value[i] = c.life;
       this.U.uRGlow.value[i] = c.glow;
     }
