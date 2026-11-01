@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI demo — The Transition</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #e9e1cf; }
+      /* Stand-in for the watercolor diorama. */
+      #world {
+        position: fixed; inset: 0;
+        background:
+          radial-gradient(ellipse 40% 30% at 28% 42%, rgba(120, 160, 110, 0.55), transparent 70%),
+          radial-gradient(ellipse 30% 22% at 45% 60%, rgba(196, 140, 90, 0.45), transparent 70%),
+          radial-gradient(ellipse 50% 35% at 18% 75%, rgba(90, 130, 150, 0.4), transparent 70%),
+          radial-gradient(ellipse 35% 25% at 60% 30%, rgba(210, 180, 120, 0.5), transparent 70%),
+          linear-gradient(160deg, #efe6d2 0%, #e2d6bb 55%, #d6c8a8 100%);
+        display: grid; place-items: center start;
+      }
+      #world span {
+        margin-left: 20vw; font: 600 2.4vw/1 Georgia, serif; color: rgba(60, 45, 30, 0.22);
+        letter-spacing: 0.1em; text-transform: uppercase;
+      }
+      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #demo-bar {
+        position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 10;
+        display: flex; gap: 6px; align-items: center; padding: 4px 8px;
+        background: rgba(30, 25, 20, 0.85); color: #f4ecdb; border-radius: 8px 8px 0 0;
+        font: 12px/1.2 'Segoe UI', sans-serif;
+      }
+      #demo-bar button, #demo-bar select { font: inherit; padding: 2px 8px; }
+      #demo-bar.is-hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="world"><span id="site"></span></div>
+    <div id="ui"></div>
+    <div id="demo-bar">
+      <button type="button" data-step="-1" title="[">◀</button>
+      <select id="demo-pick"></select>
+      <button type="button" data-step="1" title="]">▶</button>
+      <span>[ ] đổi màn · H ẩn thanh này · ?test=1 bật Ctrl+Z</span>
+    </div>
+    <script type="module">
+      import { createUI } from './src/ui/index.js';
+      import { MOCK_VIEWS, MOCK_LABELS } from './src/ui/mock.js';
+
+      const params = new URLSearchParams(location.search);
+      let i = Math.min(Number(params.get('i')) || 0, MOCK_VIEWS.length - 1);
+      let randomOn = true;
+      const pick = document.getElementById('demo-pick');
+      const bar = document.getElementById('demo-bar');
+      pick.innerHTML = MOCK_LABELS.map((l, n) => `<option value="${n}">${l}</option>`).join('');
+      if (params.get('clean') === '1') bar.classList.add('is-hidden');
+
+      const ui = createUI(document.getElementById('ui'), {
+        onAct: (id) => {
+          const v = MOCK_VIEWS[i];
+          if (!v.options.some((o) => o.id === id)) throw new Error('invalid option ' + id);
+          go(id === 'restart' ? 0 : i + 1);
+        },
+        onUndo: () => go(i - 1),
+        onToggleRandom: () => (randomOn = !randomOn),
+      });
+
+      function go(n) {
+        i = (n + MOCK_VIEWS.length) % MOCK_VIEWS.length;
+        pick.value = String(i);
+        const v = { ...MOCK_VIEWS[i], randomEvents: randomOn };
+        document.getElementById('site').textContent = 'site: ' + v.site;
+        ui.render(v);
+      }
+
+      bar.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-step]');
+        if (b) { go(i + Number(b.dataset.step)); b.blur(); }
+      });
+      pick.addEventListener('change', () => { go(Number(pick.value)); pick.blur(); });
+      window.addEventListener('keydown', (e) => {
+        if (e.target === pick) return;
+        if (e.key === ']') go(i + 1);
+        else if (e.key === '[') go(i - 1);
+        else if (e.key === 'h' || e.key === 'H') bar.classList.toggle('is-hidden');
+      });
+
+      window.__demo = { go, views: MOCK_VIEWS, ui };
+      go(i);
+    </script>
+  </body>
+</html>
