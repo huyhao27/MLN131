@@ -144,7 +144,7 @@ function paintDetail(res) {
   ctx.strokeStyle = rgba(PAL.dirt, 0.7);
   ctx.lineWidth = 1.1 * k;
   ctx.setLineDash([3 * k, 1.2 * k]);
-  const paths = [[[-50, -12], [-56, 4], [-48, 18], [-30, 26]], [[-34, -26], [-40, -4]], [[-94, -32], [-85, -24], [-78, -14], [-92, -6]], [[-70, 40], [-86, 28]]];
+  const paths = [[[-50, -12], [-56, 4], [-48, 18], [-30, 26]], [[-34, -26], [-40, -4]], [[-72, -34], [-74, -24], [-75, -12], [-83, -3]], [[-97, -30], [-101, -16]], [[-70, 40], [-86, 28]]];
   for (const p of paths) {
     ctx.beginPath();
     p.forEach(([x, z], i) => (i ? ctx.lineTo(X(x), Z(z)) : ctx.moveTo(X(x), Z(z))));
@@ -195,13 +195,21 @@ void main() {
   float edgeN = (n2.r - 0.5) * 0.09 + (n1.g - 0.5) * 0.05;
   float land = smoothstep(0.47, 0.53, m.r + edgeN);
 
-  // --- grass, posterized into 4 bands for a gouache feel ---
-  float t = clamp(n1.r * 0.9 + n2.g * 0.45 - 0.2 - m.b * 0.35, 0.0, 1.0);
-  vec3 col = ramp4(t, cGrassDeep, cGrass, cGrassLight, cGrassSun);
-  col = mix(col, cForest, smoothstep(0.55, 0.85, m.b + (n2.b - 0.5) * 0.3) * 0.55);
+  // --- grass: soft-posterized bands (gouache), low frequency so it reads as washes ---
+  float lo = nT(vXZ * 0.011).r;
+  float mid = nT(vXZ * 0.04 + 0.3).g;
+  float t = clamp(lo * 0.8 + mid * 0.4 - 0.18 - m.b * 0.25, 0.0, 0.999);
+  float tb = (floor(t * 4.0) + smoothstep(0.3, 0.7, fract(t * 4.0))) / 4.0;
+  vec3 col = mix(cGrassDeep, cGrass, smoothstep(0.0, 0.3, tb));
+  col = mix(col, cGrassLight, smoothstep(0.3, 0.6, tb));
+  col = mix(col, cGrassSun, smoothstep(0.65, 0.95, tb));
+  col = mix(col, cForest, smoothstep(0.55, 0.9, m.b + (mid - 0.5) * 0.3) * 0.5);
+  // Directional brush streaks.
+  float streak = nT(vec2(vXZ.x * 0.06, vXZ.y * 0.22)).b;
+  col *= 0.95 + streak * 0.09;
   // Living standards: greener lusher grass; low LIFE dries the land.
-  float dryness = clamp((0.55 - uLife) * 1.4, 0.0, 0.6) + m.g * clamp((0.55 - uEquity) * 1.6, 0.0, 0.5);
-  col = mix(col, mix(cDry, col, 0.35), clamp(dryness, 0.0, 0.7) * smoothstep(0.35, 0.7, n1.b + 0.2));
+  float dryness = clamp((0.55 - uLife) * 1.8, 0.0, 0.75) + m.g * clamp((0.55 - uEquity) * 1.6, 0.0, 0.5);
+  col = mix(col, mix(cDry, col, 0.3), clamp(dryness, 0.0, 0.85) * (0.5 + 0.5 * smoothstep(0.3, 0.7, n1.b)));
   col = mix(col, col * vec3(0.96, 1.04, 0.94), clamp((uLife - 0.5) * 1.6, 0.0, 0.6));
   // Rural/urban contrast: low equity desaturates the countryside.
   col = desat(col, m.g * clamp((0.5 - uEquity) * 1.2, 0.0, 0.45));
@@ -218,11 +226,15 @@ void main() {
 
   // --- water ---
   float depth = clamp(1.0 - m.a * 2.0, 0.0, 1.0);
-  vec3 w = mix(cSeaLight, cSea, smoothstep(0.0, 0.25, depth));
-  w = mix(w, cSeaDeep, smoothstep(0.25, 0.9, depth));
-  float ripple = nT(vXZ * 0.05 + vec2(uTime * 0.012, uTime * 0.006)).b;
-  float ripple2 = nT(vXZ * 0.09 - vec2(uTime * 0.01, -uTime * 0.004)).g;
-  w += (smoothstep(0.62, 0.7, ripple * 0.6 + ripple2 * 0.5) * 0.10);
+  vec3 w = mix(cSeaLight, cSea, smoothstep(0.0, 0.3, depth));
+  w = mix(w, cSeaDeep, smoothstep(0.3, 1.0, depth) * 0.85);
+  // Long horizontal wash strokes drifting slowly, plus sparse glints.
+  float s1 = nT(vec2(vXZ.x * 0.008 + uTime * 0.003, vXZ.y * 0.045)).b;
+  float s2 = nT(vec2(vXZ.x * 0.02 - uTime * 0.004, vXZ.y * 0.1 + 0.5)).g;
+  w = mix(w, w * 1.06 + 0.025, smoothstep(0.4, 0.8, s1) * 0.7);
+  w = mix(w, w * 0.94, smoothstep(0.5, 0.85, s2) * 0.5);
+  float gl = nT(vec2(vXZ.x * 0.05, vXZ.y * 0.3) + vec2(uTime * 0.01, uTime * 0.004)).a;
+  w += smoothstep(0.84, 0.9, gl) * 0.06 * smoothstep(0.1, 0.4, depth);
   // Animated foam bands that hug the shore.
   float shore = m.r + edgeN;
   float band = sin(shore * 70.0 - uTime * 1.4 + n2.r * 6.0);
@@ -233,9 +245,8 @@ void main() {
   col = mix(col, cInk, (1.0 - smoothstep(0.0, 0.012, abs(shore - 0.5))) * 0.35);
 
   // Cloud shadows, light, pigment grain.
-  col *= 1.0 - cloudShadow(vXZ) * 0.22;
+  col *= 1.0 - cloudShadow(vXZ) * 0.16;
   col *= uLightCol;
-  col *= 0.93 + nT(vXZ * 0.6).r * 0.1;
 
   // The world fades into paper at its edges, like a painting on a page.
   float r = length((vXZ - vec2(0.0, 0.0)) * vec2(0.82, 1.15));

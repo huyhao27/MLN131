@@ -74,7 +74,7 @@ vec4 nT(vec2 p) { return texture2D(uNoise, p); }
 float cloudShadow(vec2 xz) {
   vec2 p = xz * 0.0045 + vec2(uTime * 0.0035, uTime * 0.0012);
   float n = nT(p + nT(p * 1.7 + 0.31).b * 0.25).a;
-  return smoothstep(0.52, 0.72, n);
+  return smoothstep(0.5, 0.8, n);
 }
 float bayer4(vec2 fc) {
   vec2 p = mod(floor(fc), 4.0);

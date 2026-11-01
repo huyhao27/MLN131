@@ -58,7 +58,9 @@ export function createDiorama(canvas, opts = {}) {
 
   const props = buildProps();
   const movers = buildMovers();
-  const a2c = quality !== 'low';
+  // MSAA proved expensive on integrated GPUs; cards use alpha-test cutout and the paint
+  // pass softens edges instead.
+  const a2c = false;
   const statics = new CardLayer(atlas, U, props.length + 16, { name: 'props', a2c });
   const dynamics = new CardLayer(atlas, U, movers.length + 8, { name: 'movers', a2c });
   const clouds = new CardLayer(atlas, U, 24, { name: 'clouds', shadows: false, a2c });
@@ -81,7 +83,7 @@ export function createDiorama(canvas, opts = {}) {
       const pos = statics.anchor(i, u, v, PITCH);
       const it = statics.items[i];
       smoke.addEmitter(pos, {
-        rate: 5, size: 2.4, rise: 2.4,
+        rate: 7, size: 3.6, rise: 2.6, shade: 0.62,
         getStrength: () => it.g * clamp((shown.PROD - 25) / 55, 0.05, 1.2),
       });
     }
@@ -152,12 +154,12 @@ export function createDiorama(canvas, opts = {}) {
   }
 
   // ---- render setup / quality ----
-  const post = new PaintPass(renderer, U.uNoise.value, { samples: quality === 'low' ? 0 : 4 });
+  const post = new PaintPass(renderer, U.uNoise.value, { samples: 0 });
   let width = 0, height = 0;
   function resize() {
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
-    const pr = Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 1.5) * (quality === 'low' ? 0.75 : 1);
+    const pr = quality === 'low' ? Math.min(window.devicePixelRatio || 1, 1) * 0.7 : Math.min(window.devicePixelRatio || 1, 1.25);
     if (w === width && h === height && renderer.getPixelRatio() === pr) return;
     width = w; height = h;
     renderer.setPixelRatio(pr);
@@ -169,18 +171,18 @@ export function createDiorama(canvas, opts = {}) {
     smoke.uniforms.uPxScale.value = bh / (2 * Math.tan(THREE.MathUtils.degToRad(15)));
   }
 
-  function setQuality(q) {
+  function setQuality(q, { persist = true } = {}) {
     quality = q === 'low' ? 'low' : 'high';
-    try { localStorage.setItem('world:quality', quality); } catch { /* storage may be blocked */ }
+    if (persist) {
+      try { localStorage.setItem('world:quality', quality); } catch { /* storage may be blocked */ }
+    }
     const a = quality !== 'low';
-    statics.setA2C(a); dynamics.setA2C(a); clouds.setA2C(a);
-    post.setSamples(a ? 4 : 0);
     post.uniforms.uBoil.value = a ? 1 : 0.6;
     smoke.setQuality(quality);
     width = 0;
     resize();
   }
-  setQuality(quality);
+  setQuality(quality, { persist: false });
 
   // ---- pulse ----
   const pulseState = { t: 1, kind: 'neutral' };
@@ -200,9 +202,26 @@ export function createDiorama(canvas, opts = {}) {
     requestAnimationFrame(frame);
     const realDt = (now - last) / 1000;
     last = now;
-    const dt = Math.min(0.05, Math.max(0, realDt));
-    const time = (U.uTime.value += dt);
     resize();
+    tick(Math.min(0.05, Math.max(0, realDt)), realDt > 0.25 ? 0.016 : Math.min(0.05, realDt));
+    post.render(scene, camera);
+
+    // Auto-lower quality once if frames stay slow for a few seconds.
+    // Ignore hitches and throttled background frames; only sustained slowness counts.
+    if (realDt < 0.1 && document.visibilityState === 'visible') frameAvg += (realDt * 1000 - frameAvg) * 0.05;
+    if (!autoLowered && quality === 'high' && frameAvg > 24) {
+      slowFor += realDt;
+      if (slowFor > 4) {
+        autoLowered = true;
+        console.info('[world] frame time high, switching to low quality');
+        setQuality('low', { persist: false });
+      }
+    } else slowFor = 0;
+  }
+
+  // One simulation step of everything that moves (no rendering).
+  function tick(dt, camDt) {
+    const time = (U.uTime.value += dt);
 
     // Ease displayed metrics toward targets so the world shifts smoothly.
     const k = damp(1.6, dt);
@@ -220,9 +239,9 @@ export function createDiorama(canvas, opts = {}) {
       clamp(0.2 + shown.COHESION / 110, 0, 1.1),
     );
     // Light: warmer and brighter with cohesion; slightly grey when it breaks down.
-    U.uLightCol.value.set(0.97 + warmth * 0.06, 0.97 + warmth * 0.02, 0.98 - warmth * 0.05);
+    U.uLightCol.value.set(0.9 + warmth * 0.13, 0.91 + warmth * 0.08, 0.96 - warmth * 0.03);
 
-    const d = rig.update(realDt > 0.25 ? 0.016 : Math.min(0.05, realDt));
+    const d = rig.update(camDt);
     U.uCamDist.value = d;
 
     for (const mv of movingThings) placeMover(mv, dt);
@@ -248,20 +267,8 @@ export function createDiorama(canvas, opts = {}) {
     post.uniforms.uPulseR.value = pulseState.t * 0.55;
     post.uniforms.uDesat.value = P.desat * env + clamp((40 - shown.COHESION) / 80, 0, 0.25);
     post.uniforms.uWarmth.value = warmth;
+    post.uniforms.uFocusUv.value.set((rig.cur.fx + 1) / 2, (rig.cur.fy + 1) / 2);
     post.uniforms.uTime.value = time;
-
-    post.render(scene, camera);
-
-    // Auto-lower quality once if frames stay slow for a few seconds.
-    frameAvg += (realDt * 1000 - frameAvg) * 0.05;
-    if (!autoLowered && quality === 'high' && frameAvg > 24) {
-      slowFor += dt;
-      if (slowFor > 4) {
-        autoLowered = true;
-        console.info('[world] frame time high, switching to low quality');
-        setQuality('low');
-      }
-    } else slowFor = 0;
   }
   requestAnimationFrame(frame);
 
@@ -291,6 +298,13 @@ export function createDiorama(canvas, opts = {}) {
     get site() { return rig.site; },
     get quality() { return quality; },
     sites: SITE_IDS,
+    debug: { renderer, scene, camera, rig, post, smoke, statics, dynamics, render: () => post.render(scene, camera),
+      // Fast-forward the world (for headless checks / screenshots).
+      advance(seconds = 1) {
+        for (let t = 0; t < seconds; t += 1 / 30) tick(1 / 30, 1 / 30);
+        post.render(scene, camera);
+      },
+    },
   };
   return api;
 }

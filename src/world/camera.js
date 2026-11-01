@@ -8,7 +8,13 @@ import { SITES } from './layout.js';
 export const PITCH = THREE.MathUtils.degToRad(52);
 export const FOV = 30;
 // Where the site point should land on screen, in NDC (-1..1).
-const FRAME = { x: -0.3, y: 0.16 };
+const FRAME = { x: -0.3, y: 0.1 };
+
+const KEYS = ['x', 'z', 'd', 'fx', 'fy'];
+function shotOf(id) {
+  const s = SITES[id] || SITES.overview;
+  return { x: s.x, z: s.z, d: s.d, fx: s.fx ?? FRAME.x, fy: s.fy ?? FRAME.y };
+}
 
 const aspectFactor = (aspect) => 1 + Math.min(0.45, Math.max(0, (1.6 - aspect) * 0.5));
 
@@ -17,22 +23,20 @@ export class CameraRig {
     this.camera = camera;
     camera.fov = FOV;
     camera.updateProjectionMatrix();
-    const o = SITES.overview;
-    this.cur = { x: o.x, z: o.z, d: o.d };
+    this.cur = shotOf('overview');
     this.tween = null;
     this.site = 'overview';
     this.clock = 0;
     this.trauma = 0;
-    this.focusNdc = new THREE.Vector2(FRAME.x, FRAME.y);
   }
 
   focus(siteId, { instant = false } = {}) {
-    const to = SITES[siteId] || SITES.overview;
     if (!SITES[siteId]) console.warn('[world] unknown site', siteId);
     this.site = SITES[siteId] ? siteId : 'overview';
+    const to = shotOf(this.site);
     if (instant) {
       this.tween = null;
-      Object.assign(this.cur, { x: to.x, z: to.z, d: to.d });
+      Object.assign(this.cur, to);
       return;
     }
     const from = { ...this.cur };
@@ -58,9 +62,7 @@ export class CameraRig {
       const tw = this.tween;
       tw.t += dt / tw.duration;
       const k = easeInOutCubic(clamp(tw.t));
-      this.cur.x = tw.from.x + (tw.to.x - tw.from.x) * k;
-      this.cur.z = tw.from.z + (tw.to.z - tw.from.z) * k;
-      this.cur.d = tw.from.d + (tw.to.d - tw.from.d) * k;
+      for (const key of KEYS) this.cur[key] = tw.from[key] + (tw.to[key] - tw.from[key]) * k;
       hop = Math.sin(Math.PI * clamp(tw.t)) * tw.hop;
       if (tw.t >= 1) this.tween = null;
     }
@@ -76,8 +78,8 @@ export class CameraRig {
 
     const halfH = d * Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     const halfW = halfH * this.camera.aspect;
-    const lookX = this.cur.x - FRAME.x * halfW + ix + sx;
-    const lookZ = this.cur.z + (FRAME.y * halfH) / Math.sin(PITCH) + iz + sz;
+    const lookX = this.cur.x - this.cur.fx * halfW + ix + sx;
+    const lookZ = this.cur.z + (this.cur.fy * halfH) / Math.sin(PITCH) + iz + sz;
     this.camera.position.set(lookX, Math.sin(PITCH) * d, lookZ + Math.cos(PITCH) * d);
     this.camera.rotation.set(-PITCH, 0, noise1(t * 18, 7) * s * 0.01);
     this.camera.updateMatrixWorld();

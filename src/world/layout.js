@@ -1,4 +1,4 @@
-// Hand-authored map of the fictional island republic "Hòa Minh".
+// Hand-authored map of the fictional island republic "Hoa Minh".
 // x grows east (screen right), z grows south (toward the camera). Units ~ meters x 10.
 import { makeRng, fbm2 } from '../core/rng.js';
 
@@ -50,7 +50,7 @@ export const ROADS = [
   { pts: [[18, 22], [22, 40], [26, 48]], w: 2.0 },
 ];
 
-export const RIVER = [[-80, -46], [-81, -38], [-85, -28], [-90, -14], [-96, 2], [-100, 18], [-103, 34], [-107, 50], [-110, 66]];
+export const RIVER = [[-80, -46], [-81, -38], [-86, -30], [-84, -22], [-90, -14], [-95, -4], [-93, 6], [-99, 16], [-104, 26], [-102, 36], [-107, 46], [-110, 62]];
 export const RESERVOIR = { x: -80, z: -57, rx: 21, rz: 9 };
 
 // Zones painted on the ground. kind: plaza | concrete | dock | lawn | dirt
@@ -83,16 +83,16 @@ export const FIELDS = [
 // ---------- camera sites ----------
 // x, z: point of interest; d: camera distance. The rig frames the point toward the left/center.
 export const SITES = {
-  overview: { x: 0, z: 2, d: 330 },
-  industrial: { x: 80, z: -22, d: 92 },
-  economy: { x: 26, z: -52, d: 108 },
-  ringroad: { x: -38, z: 2, d: 100 },
-  hospital: { x: 0, z: 8, d: 78 },
-  coalition: { x: -14, z: 42, d: 86 },
-  valley: { x: -82, z: -38, d: 104 },
-  temple: { x: -72, z: 34, d: 74 },
-  housing: { x: 34, z: 30, d: 92 },
-  port: { x: 100, z: 54, d: 92 },
+  overview: { x: 4, z: 0, d: 360, fx: -0.16, fy: 0.06 },
+  industrial: { x: 80, z: -24, d: 76 },
+  economy: { x: 28, z: -52, d: 92 },
+  ringroad: { x: -40, z: 2, d: 88 },
+  hospital: { x: 0, z: 4, d: 62 },
+  coalition: { x: -14, z: 44, d: 72 },
+  valley: { x: -84, z: -44, d: 96 },
+  temple: { x: -72, z: 33, d: 60 },
+  housing: { x: 36, z: 28, d: 78 },
+  port: { x: 102, z: 56, d: 80 },
 };
 
 // ---------- helpers ----------
@@ -115,16 +115,24 @@ export function buildProps() {
   const rng = makeRng('layout');
   const tree = () => rng.pick(['tree_a', 'tree_b', 'tree_c', 'tree_a']);
 
-  // ===== Industrial park "Thiên Hà" =====
+  // ===== Industrial park "Thien Ha" =====
   add('factory', 70, -36, { glowK: 'PROD' });
   add('factory', 92, -35, { glowK: 'PROD', flip: true });
   add('factory', 68, -22, { glowK: 'PROD' });
   add('factory', 92, -21, { glowK: 'PROD' });
   add('warehouse', 110, -26);
   add('warehouse', 52, -30);
-  add('crane', 104, -40, { show: above('PROD', 58) });
+  add('crane', 112, -31, { show: above('PROD', 58) });
   add('crane', 54, -42, { show: above('PROD', 70), flip: true });
   add('pylon', 112, -40);
+  add('tanks', 108, -14);
+  add('tanks', 47, -18, { flip: true });
+  add('containers', 58, -15, { show: above('PROD', 45) });
+  add('containers', 100, -29, { show: above('PROD', 60) });
+  add('boxes', 64, -28);
+  add('worker', 80, -28, { bob: 0 });
+  add('worker', 83, -29);
+  add('worker', 60, -33);
   add('crowd_workers', 78, -14, { show: above('COHESION', 35) });
   add('crowd_workers', 85, -15.5, { show: above('TRUST', 50) });
   add('crowd_workers', 72, -15, { show: any(flag('LABOR_DIALOGUE'), flag('WAGE_SHOCK')) });
@@ -148,6 +156,14 @@ export function buildProps() {
   add('crane', 16, -70, { show: flag('ECON_OVERHEAT'), flip: true });
   add('truck', 58, -40, { show: flag('ECON_OVERHEAT') });
   add('crowd_b', 40, -42, { show: above('TRUST', 45) });
+  add('lab', 38, -36, { show: above('PROD', 45), glowK: 'PROD' });
+  add('crowd_a', 30, -44, { show: above('LIFE', 50) });
+  for (let i = 0; i < 4; i++) add('planter', 26 + i * 6, -46, { show: above('LAW', 45 + i * 4) });
+  for (let i = 0; i < 4; i++) add('lamp', 23 + i * 7, -38.5, { show: above('LAW', 42 + i * 5) });
+  add('tree_bloom', 60, -50, { show: above('LIFE', 45) });
+  add('tree_c', 20, -50);
+  add('bush_lime', 46, -47);
+  add('bush', 34, -47);
   for (let i = 0; i < 5; i++) add('tree_b', 24 + i * 7, -40, { show: above('LIFE', 35 + i * 6) });
   add('wind_turbine', 76, -60);
   add('wind_turbine', 88, -54);
@@ -193,7 +209,7 @@ export function buildProps() {
   add('shophouses', 17, 6);
   add('crowd_family', -4, 13, { show: above('LIFE', 35) });
   add('crowd_elders', 5, 14, { show: above('TRUST', 45) });
-  add('car_white', 9, 12);
+  add('ambulance', 11, 11);
   add('trash', -9, 14, { show: below('LAW', 45) });
   add('boxes', 11, 15, { show: below('LAW', 40) });
   for (let i = 0; i < 4; i++) add('planter', -9 + i * 6, 17, { show: above('LAW', 48 + i * 4) });
@@ -239,20 +255,20 @@ export function buildProps() {
   for (let i = 0; i < 6; i++) add(i % 2 ? 'tree_bloom' : 'tree_b', 14 + i * 9, 40 + (i % 2) * 2, { show: above('LIFE', 32 + i * 7) });
   for (let i = 0; i < 5; i++) add('lamp', 18 + i * 10, 37, { show: above('LAW', 46 + i * 4) });
 
-  // ===== Valley "Bản Mây": dam, reservoir, stilt houses =====
-  add('mountain_c', -76, -96);
-  add('mountain_a', -88, -80);
-  add('mountain_b', -116, -66);
-  add('mountain_b', -50, -76);
+  // ===== Valley "Ban May": dam, reservoir, stilt houses =====
+  add('mountain_c', -78, -86);
+  add('mountain_a', -92, -72);
+  add('mountain_b', -118, -60);
+  add('mountain_b', -58, -70);
   add('mountain_a', -32, -74);
   add('dam', -80, -46, { glowK: 'PROD' });
   add('pylon', -60, -44);
   add('pylon', -44, -38);
   add('pylon', -28, -32);
-  const stilts = [[-94, -32], [-73, -32], [-71, -22], [-97, -18], [-78, -14], [-92, -6]];
+  const stilts = [[-97, -30], [-72, -34], [-101, -16], [-75, -12], [-83, -3], [-64, -26]];
   stilts.forEach(([x, z], i) => add('stilt', x, z, { flip: i % 2 === 1 }));
-  add('community_hall', -78, -26, { show: flag('REGION_PARTICIPATION') });
-  add('crowd_farmers', -82, -20, { show: any(flag('REGION_PARTICIPATION'), above('TRUST', 60)) });
+  add('community_hall', -74, -24, { show: flag('REGION_PARTICIPATION') });
+  add('crowd_farmers', -77, -18, { show: any(flag('REGION_PARTICIPATION'), above('TRUST', 60)) });
   add('crowd_farmers', -70, -16, { show: above('COHESION', 45) });
   add('hut', -102, -10, { show: below('EQUITY', 45) });
   add('solar_house', -102, -10, { show: above('EQUITY', 45) });
@@ -265,6 +281,11 @@ export function buildProps() {
   // ===== Temple: neutral place of worship =====
   add('temple', -70, 30, { glowK: 'COHESION' });
   add('banyan', -86, 28);
+  add('bamboo', -80, 22);
+  add('tree_c', -62, 20);
+  add('bush', -58, 31);
+  add('bush_lime', -83, 35);
+  add('pine', -90, 40);
   add('bamboo', -56, 24);
   add('pine', -60, 22);
   add('crowd_elders', -74, 37, { show: above('COHESION', 40) });
@@ -275,7 +296,6 @@ export function buildProps() {
   add('lamp', -77, 40, { show: above('LAW', 40) });
   add('lamp', -63, 41, { show: above('LAW', 40) });
   add('trash', -58, 42, { show: below('LAW', 40) });
-  add('hill', -74, 14);
 
   // ===== Port =====
   add('warehouse', 84, 42);
@@ -296,8 +316,6 @@ export function buildProps() {
   add('palm', 78, 40);
 
   // ===== Landmarks seen from the overview =====
-  add('hill', 112, -10);
-  add('hill', 0, 62);
   add('lighthouse', -112, 72);
 
   // ===== Scattered trees (seeded jittered grid, filtered) =====
@@ -360,7 +378,7 @@ export function buildMovers() {
   walk([[-12, 16], [12, 16], [12, 18], [-12, 18]], 7, [...W, 'elder'], 'TRUST');
   walk([[-24, 53], [0, 53], [0, 56], [-24, 56]], 10, [...W, 'child'], 'LIFE', 15);
   walk([[14, 38], [56, 38], [56, 40], [14, 40]], 9, [...W, 'child', 'elder'], 'LIFE');
-  walk([[-90, -12], [-72, -12], [-72, -10], [-90, -10]], 5, ['farmer', 'farmer', 'child'], 'COHESION');
+  walk([[-82, -8], [-66, -8], [-66, -6], [-82, -6]], 5, ['farmer', 'farmer', 'child'], 'COHESION');
   walk([[-80, 40], [-60, 40], [-60, 42], [-80, 42]], 6, ['elder', ...W], 'COHESION');
   walk([[-46, 6], [-32, -8], [-30, -6], [-44, 8]], 5, ['farmer', 'walker_b', 'child'], 'TRUST');
   walk([[86, 54], [112, 54], [112, 56], [86, 56]], 6, ['worker'], 'PROD');

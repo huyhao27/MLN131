@@ -193,16 +193,18 @@ function pine(p) {
 }
 
 function bamboo(p) {
-  for (let i = 0; i < 7; i++) {
-    const u = (i / 6 - 0.5) * (p.W - 1.2);
+  for (let i = 0; i < 10; i++) {
+    const u = (i / 9 - 0.5) * (p.W - 1.2);
     const lean = p.rng.range(-0.6, 0.6);
     const a = P(p, u, 0), b = P(p, u + lean, p.H - p.rng.range(0.3, 1.2));
     brushStroke(p.ctx, [a, b], { width: 0.14 * p.s, color: i % 2 ? '#7f9b4c' : '#9ab35a' });
   }
-  for (let i = 0; i < 70; i++) {
-    const u = p.rng.range(-p.W / 2 + 0.4, p.W / 2 - 0.4), v = p.rng.range(1.2, p.H - 0.2);
+  for (let i = 0; i < 190; i++) {
+    const v = p.rng.range(1.0, p.H - 0.2);
+    const spread = (p.W / 2 - 0.3) * (0.55 + 0.45 * Math.sin(Math.min(1, v / p.H) * Math.PI));
+    const u = p.rng.range(-spread, spread);
     const [x, y] = P(p, u, v);
-    p.ctx.fillStyle = rgba(p.rng.chance(0.5) ? LEAF.lime.body : LEAF.lime.shadow, 0.85);
+    p.ctx.fillStyle = rgba(p.rng.pick([LEAF.lime.body, LEAF.lime.shadow, LEAF.oak.shadow, LEAF.lime.light]), 0.92);
     p.ctx.beginPath();
     p.ctx.ellipse(x, y, 0.35 * p.s, 0.1 * p.s, p.rng.range(-0.9, 0.9), 0, Math.PI * 2);
     p.ctx.fill();
@@ -488,12 +490,10 @@ function tower(p) {
     const a = P(p, b.l, v), c = P(p, b.r, v);
     line(p.ctx, a[0], a[1], c[0], c[1], '#d6e4e4', 1, 0.55);
     for (let j = 0; j < 5; j++) {
-      if (p.rng.chance(0.45)) {
-        const q = P(p, b.l + 0.2 + j * (b.w - 0.4) / 5, v + 0.95);
-        p.emit.fillStyle = `rgba(255,255,255,${p.rng.range(0.5, 0.9)})`;
-        p.emit.fillRect(q[0], q[1], (b.w - 0.6) / 5 * p.s, 0.8 * p.s);
-        p.ctx.fillStyle = rgba(PAL.glow, 0.25);
-        p.ctx.fillRect(q[0], q[1], (b.w - 0.6) / 5 * p.s, 0.8 * p.s);
+      if (p.rng.chance(0.3)) {
+        const q = P(p, b.l + 0.25 + j * (b.w - 0.4) / 5, v + 0.85);
+        p.emit.fillStyle = `rgba(255,255,255,${p.rng.range(0.4, 0.8)})`;
+        p.emit.fillRect(q[0], q[1], (b.w - 0.9) / 5 * p.s, 0.6 * p.s);
       }
     }
   }
@@ -554,6 +554,26 @@ function factory(p) {
   // Storage tank.
   const tq = pts(p, [[b.r + 0.1, 0], [b.r + 1.4, 0], [b.r + 1.4, 2.0], [b.r + 0.1, 2.0]]);
   wash(p.ctx, tq, '#a9b3b5', p.rng, { outline: 0.3, light: 0.3 });
+}
+
+function tanks(p) {
+  const c = p.ctx;
+  for (const [u, r, h] of [[-1.8, 1.4, 3.6], [1.4, 1.7, 4.2]]) {
+    const body = pts(p, [[u - r, 0], [u + r, 0], [u + r, h], [u - r, h]]);
+    wash(c, body, '#c9cfd0', p.rng, { outline: 0.35, light: 0.35 });
+    const [x, y] = P(p, u, h);
+    c.fillStyle = '#e4e8e6';
+    c.beginPath(); c.ellipse(x, y, r * p.s, r * 0.45 * p.s, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = rgba(PAL.ink, 0.3); c.lineWidth = 1.2; c.stroke();
+    for (let i = 1; i < 4; i++) {
+      const a = P(p, u - r, (h * i) / 4), b = P(p, u + r, (h * i) / 4);
+      line(c, a[0], a[1], b[0], b[1], '#9aa3a6', 1, 0.6);
+    }
+    const s0 = P(p, u + r * 0.6, 0), s1 = P(p, u + r * 0.2, h);
+    line(c, s0[0], s0[1], s1[0], s1[1], PAL.accentOrange, 1.5, 0.8);
+  }
+  const a = P(p, -0.4, 2.2), b = P(p, 0.0, 2.2);
+  line(c, a[0], a[1], b[0], b[1], '#7d868c', 0.3 * p.s);
 }
 
 function warehouse(p) {
@@ -622,23 +642,46 @@ function scaffold(p) {
 }
 
 function hospital(p) {
-  const wing = box(p, { x: -p.W / 2 + 3.2, w: 5, h: 4.2, d: 2, wall: PAL.wallWhite });
-  windows(p, wing, { rows: 3, cols: 3, mx: 0.5, mb: 0.6, mt: 0.4, gap: 0.4, lit: 0.6 });
-  const b = box(p, { x: 1.4, w: p.W - 6.6, h: p.H - 2.6, d: 2, wall: '#f4f1ea' });
-  windows(p, b, { rows: 5, cols: 4, mx: 0.6, mb: 1.8, mt: 0.6, gap: 0.4, lit: 0.6 });
-  // Teal band + entrance canopy.
-  wash(p.ctx, pts(p, [[b.l, 1.3], [b.r, 1.3], [b.r, 1.65], [b.l, 1.65]]), PAL.accentTeal, p.rng, { outline: 0.2 });
-  wash(p.ctx, pts(p, [[b.x - 1.8, 1.2], [b.x + 1.8, 1.2], [b.x + 2.2, 1.6], [b.x - 1.4, 1.6]]), PAL.accentTeal, p.rng, { outline: 0.3 });
-  door(p, b.x + 0.1, 2.0, 1.1, PAL.glassDeep);
-  // Green plus sign (neutral health symbol, not an emblem).
-  const [cx, cy] = P(p, b.r - 1.2, b.t - 1.1);
-  const s = 0.42 * p.s;
-  p.ctx.fillStyle = PAL.accentGreen;
+  const wing = box(p, { x: -p.W / 2 + 3.4, w: 5.4, h: 3.6, d: 2, wall: '#eef0ea' });
+  windows(p, wing, { rows: 2, cols: 3, mx: 0.5, mb: 0.6, mt: 0.4, gap: 0.4, lit: 0.6, color: '#5d8a94' });
+  const b = box(p, { x: 1.6, w: p.W - 7.4, h: 6.4, d: 2.2, wall: '#f6f4ee', topCol: '#9fcfc6' });
+  windows(p, b, { rows: 3, cols: 5, mx: 0.6, mb: 1.9, mt: 0.6, gap: 0.4, lit: 0.6, color: '#5d8a94' });
+  // Teal bands: the building reads as a clinic, not housing.
+  wash(p.ctx, pts(p, [[b.l, 1.35], [b.r, 1.35], [b.r, 1.7], [b.l, 1.7]]), PAL.accentTeal, p.rng, { outline: 0.2 });
+  wash(p.ctx, pts(p, [[b.l, b.t - 0.35], [b.r, b.t - 0.35], [b.r, b.t], [b.l, b.t]]), PAL.accentTeal, p.rng, { outline: 0.2 });
+  wash(p.ctx, pts(p, [[b.x - 2.2, 1.25], [b.x + 2.2, 1.25], [b.x + 2.7, 1.75], [b.x - 1.7, 1.75]]), '#2f7f78', p.rng, { outline: 0.3 });
+  door(p, b.x + 0.2, 2.4, 1.15, PAL.glassDeep);
+  // Big green plus sign on a rooftop board (neutral health symbol, not an emblem).
+  const sb = box(p, { x: b.x, y: b.t + 0.6, w: 3.0, h: 2.6, d: 0.3, wall: '#ffffff', outline: 0.4 });
+  const [cx, cy] = P(p, sb.x, sb.y + 1.3);
+  const s = 0.95 * p.s;
+  p.ctx.fillStyle = '#3fa05a';
   p.ctx.fillRect(cx - s, cy - s * 0.33, s * 2, s * 0.66);
   p.ctx.fillRect(cx - s * 0.33, cy - s, s * 0.66, s * 2);
-  glowDot(p.emit, cx, cy, s * 1.6, 0.9);
-  // Helipad-ish roof marking avoided; add rooftop units.
-  wash(p.ctx, pts(p, [[b.l + 0.6, b.t + 0.6], [b.l + 2, b.t + 0.6], [b.l + 2, b.t + 1.3], [b.l + 0.6, b.t + 1.3]]), PAL.steel, p.rng, { outline: 0.3 });
+  p.emit.fillStyle = 'rgba(255,255,255,0.8)';
+  p.emit.fillRect(cx - s, cy - s * 0.33, s * 2, s * 0.66);
+  p.emit.fillRect(cx - s * 0.33, cy - s, s * 0.66, s * 2);
+  const l0 = P(p, sb.x - 1, b.t), l1 = P(p, sb.x - 1, sb.y);
+  line(p.ctx, l0[0], l0[1], l1[0], l1[1], PAL.inkSoft, 2);
+  const r0 = P(p, sb.x + 1, b.t), r1 = P(p, sb.x + 1, sb.y);
+  line(p.ctx, r0[0], r0[1], r1[0], r1[1], PAL.inkSoft, 2);
+}
+
+function ambulance(p) {
+  const c = p.ctx, s = p.s;
+  const [x, y] = P(p, 0, 0);
+  for (const dx of [-1.0, 1.0]) disc(c, x + dx * s, y - 0.3 * s, 0.3 * s, '#2f2f36');
+  wash(c, pts(p, [[-1.8, 0.3], [1.0, 0.3], [1.0, 1.9], [-1.8, 1.9]]), '#f6f4ee', p.rng, { outline: 0.4 });
+  wash(c, pts(p, [[1.0, 0.3], [1.8, 0.3], [1.8, 1.1], [1.4, 1.6], [1.0, 1.6]]), '#f6f4ee', p.rng, { outline: 0.4 });
+  wash(c, pts(p, [[1.1, 1.0], [1.65, 1.0], [1.35, 1.4], [1.1, 1.4]]), PAL.glass, p.rng, { outline: 0 });
+  wash(c, pts(p, [[-1.8, 0.75], [1.8, 0.75], [1.8, 0.95], [-1.8, 0.95]]), '#3fa05a', p.rng, { outline: 0 });
+  const [px, py] = P(p, -0.4, 1.4);
+  c.fillStyle = '#3fa05a';
+  c.fillRect(px - 0.3 * s, py - 0.1 * s, 0.6 * s, 0.2 * s);
+  c.fillRect(px - 0.1 * s, py - 0.3 * s, 0.2 * s, 0.6 * s);
+  const [lx, ly] = P(p, 0.6, 2.0);
+  disc(c, lx, ly, 0.14 * s, '#7fc4f0');
+  glowDot(p.emit, lx, ly, 0.5 * s, 1);
 }
 
 function school(p) {
@@ -959,12 +1002,13 @@ function planter(p) {
 }
 
 function trash(p) {
-  for (let i = 0; i < 7; i++) {
-    const [x, y] = P(p, p.rng.range(-0.55, 0.55), p.rng.range(0.15, 0.5));
-    const b = lobedBlob(x, y, p.rng.range(0.16, 0.26) * p.s, p.rng, { lobes: 4, depth: 0.2, squash: 0.85 });
+  const k = p.W / 1.6;
+  for (let i = 0; i < 9; i++) {
+    const [x, y] = P(p, p.rng.range(-0.55, 0.55) * k, p.rng.range(0.15, 0.5) * k);
+    const b = lobedBlob(x, y, p.rng.range(0.16, 0.26) * p.s * k, p.rng, { lobes: 4, depth: 0.2, squash: 0.85 });
     wash(p.ctx, b, p.rng.pick(['#3d3f45', '#6b6e75', '#5d6b5a', '#8c7a5b']), p.rng, { smooth: true, outline: 0.3 });
   }
-  const a = P(p, -0.7, 0.05), b = P(p, 0.7, 0.05);
+  const a = P(p, -0.7 * k, 0.05), b = P(p, 0.7 * k, 0.05);
   line(p.ctx, a[0], a[1], b[0], b[1], '#6b5f50', 3, 0.4);
 }
 
@@ -982,9 +1026,10 @@ function brokenFence(p) {
 }
 
 function boxes(p) {
+  const k = p.W / 1.8;
   for (let i = 0; i < 4; i++) {
-    const u = -0.7 + i * 0.45 + p.rng.range(-0.1, 0.1), v = i === 3 ? 0.5 : 0;
-    box(p, { x: u, y: v, w: 0.5, h: 0.45, d: 0.25, wall: p.rng.pick(['#c9a46a', '#b08b58', '#9b9c94']), outline: 0.35 });
+    const u = (-0.7 + i * 0.45 + p.rng.range(-0.1, 0.1)) * k, v = i === 3 ? 0.5 * k : 0;
+    box(p, { x: u, y: v, w: 0.5 * k, h: 0.45 * k, d: 0.25 * k, wall: p.rng.pick(['#c9a46a', '#b08b58', '#9b9c94']), outline: 0.35 });
   }
 }
 
@@ -1141,10 +1186,12 @@ export const SPRITES = {
   tower: { w: 8, h: 21, paint: tower, glow: 1 },
   lab: { w: 15, h: 6.6, paint: lab, glow: 1 },
   factory: { w: 16, h: 11, paint: factory, glow: 1, smoke: [[7.0, 10.3]] },
+  tanks: { w: 7, h: 5.4, paint: tanks },
   warehouse: { w: 11, h: 5.6, paint: warehouse, glow: 1 },
   crane: { w: 12, h: 17, paint: crane, glow: 1, sway: 0.03, shadow: 0.4 },
   scaffold: { w: 10, h: 12, paint: scaffold },
-  hospital: { w: 17, h: 12, paint: hospital, glow: 3 },
+  hospital: { w: 19, h: 10.5, paint: hospital, glow: 3 },
+  ambulance: { w: 3.8, h: 2.4, paint: ambulance, glow: 3 },
   school: { w: 17, h: 7.6, paint: school, glow: 3 },
   stall_red: { w: 3.6, h: 2.8, paint: stall(PAL.accentRed), glow: 2 },
   stall_teal: { w: 3.6, h: 2.8, paint: stall(PAL.accentTeal), glow: 2 },
@@ -1162,9 +1209,9 @@ export const SPRITES = {
   lighthouse: { w: 3.4, h: 9.5, paint: lighthouse, glow: 3 },
   lamp: { w: 1.0, h: 3.4, paint: lamp, glow: 3, shadow: 0.2 },
   planter: { w: 1.5, h: 1.1, paint: planter, plant: 0.6 },
-  trash: { w: 1.6, h: 0.9, paint: trash },
+  trash: { w: 2.4, h: 1.3, paint: trash },
   broken_fence: { w: 3.4, h: 1.2, paint: brokenFence },
-  boxes: { w: 1.8, h: 1.1, paint: boxes },
+  boxes: { w: 2.4, h: 1.5, paint: boxes },
   bunting: { w: 9, h: 3.4, paint: bunting, sway: 0.05, shadow: 0 },
   wind_turbine: { w: 5.4, h: 11, paint: windTurbine, shadow: 0.2 },
 

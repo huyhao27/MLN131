@@ -88,7 +88,7 @@ export class Smoke {
     this.vel[i * 3 + 1] = e.rise * (0.8 + Math.random() * 0.4);
     this.vel[i * 3 + 2] = -0.2 - Math.random() * 0.3;
     this.age[i] = 0.0001;
-    this.life[i] = 3.2 + Math.random() * 1.8;
+    this.life[i] = 4.5 + Math.random() * 2.5;
     this.baseSize[i] = e.size * (0.8 + Math.random() * 0.4);
     this.shadeA[i] = Math.min(1, Math.max(0, e.shade + (Math.random() - 0.5) * 0.15));
   }
@@ -124,7 +124,7 @@ export class Smoke {
       this.pos[i * 3] += (this.vel[i * 3] + wob) * dt;
       this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt * (1 - a * 0.6);
       this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-      this.size[i] = this.baseSize[i] * (0.6 + a * 2.2);
+      this.size[i] = this.baseSize[i] * (0.7 + a * 2.6);
     }
     const at = this.geometry.attributes;
     at.position.needsUpdate = true;
