@@ -7,7 +7,7 @@ export const BUSINESS_TITLES = {
 };
 
 const GUIDES = {
-  thief: 'Đối chiếu cả năm dấu vết với hồ sơ của 12 nghi phạm. Mỗi dấu vết chấp nhận một trong hai giá trị. Bạn chỉ được chốt một người.',
+  thief: 'So từng hàng với dấu vết ở đầu cột. Vuốt bảng sang ngang nếu thiếu cột. Bạn chỉ được chốt một người.',
   route: 'Ghé trạm 1 rồi trạm 2 trước khi tới cờ đích. Số bước vừa đủ cho đường ngắn nhất. Chọn ô kề hoặc dùng phím mũi tên.',
   cake: 'Chọn hai điểm trên viền để vạch một đường cắt. Bạn cũng có thể chỉnh hai đầu cắt bằng bàn phím. Phần nhỏ hơn phải đạt ít nhất 45%.',
 };
@@ -67,7 +67,7 @@ function cakePoint(degrees) {
 
 export function openChallenge(root, challenge, finish) {
   const dialog = document.createElement('dialog');
-  dialog.className = 'rg-challenge' + (challenge.kind === 'route' ? ' rg-route-dialog' : '');
+  dialog.className = 'rg-challenge rg-' + challenge.kind + '-dialog';
   dialog.setAttribute('aria-label', BUSINESS_TITLES[challenge.kind]);
   root.append(dialog);
   const moves = [];
@@ -100,12 +100,15 @@ export function openChallenge(root, challenge, finish) {
   }
 
   const boards = {
-    thief: () => `<ul class="rg-case-clues">${challenge.clues.map(({ label, allowed }) =>
-        `<li><b>${label}</b> · ${allowed.join(' hoặc ')}</li>`).join('')}</ul>
-      <div class="rg-game-board is-thief">${challenge.suspects.map(s =>
-        `<button type="button" class="rg-game-tile rg-suspect" data-move="${s.id}" aria-pressed="false">${portrait(s.portrait)}
-        <b>Nghi phạm ${s.id + 1}</b>${s.evidence.map((value, i) =>
-          `<span><span class="rg-sr">${challenge.clues[i].label} </span>${value}</span>`).join('')}</button>`).join('')}</div>`,
+    thief: () => `<div class="rg-case-table" tabindex="0" role="region" aria-label="Bảng đối chiếu nghi phạm">
+      <table>
+        <thead><tr><th scope="col">Nghi phạm</th>${challenge.clues.map(({ label, allowed }) =>
+          `<th scope="col"><b>${label}</b><small>${allowed.join('<br>hoặc ')}</small></th>`).join('')}</tr></thead>
+        <tbody>${challenge.suspects.map(s => `<tr><th scope="row">
+          <button type="button" class="rg-case-suspect" data-move="${s.id}" aria-pressed="false">
+            ${portrait(s.portrait)}<span>Số ${s.id + 1}</span>
+          </button></th>${s.evidence.map(value => `<td>${value}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`,
     route: () => `<p class="rg-game-status" aria-live="polite"></p>
       <div class="rg-game-board is-route" role="group" aria-label="Mê cung, dùng phím mũi tên hoặc chọn ô kề" tabindex="0"></div>`,
     cake: () => `<svg class="rg-cake" viewBox="0 0 200 200" aria-hidden="true">
@@ -123,7 +126,7 @@ export function openChallenge(root, challenge, finish) {
     ${boards[challenge.kind]()}
     <div class="rg-game-actions">
       ${challenge.kind === 'cake' ? '<button type="button" class="rg-btn is-primary" data-game="cut">Chốt đường cắt</button>' : ''}
-      ${challenge.kind === 'thief' ? '<button type="button" class="rg-btn is-primary" data-game="accuse" disabled>Chốt nghi phạm</button>' : ''}
+      ${challenge.kind === 'thief' ? '<span class="rg-case-selection" aria-live="polite">Chưa chọn nghi phạm</span><button type="button" class="rg-btn is-primary" data-game="accuse" disabled>Chốt nghi phạm</button>' : ''}
       <button type="button" class="rg-btn" data-game="quit">Bỏ lượt</button>
     </div>`;
 
@@ -145,7 +148,7 @@ export function openChallenge(root, challenge, finish) {
   }
 
   dialog.addEventListener('click', e => {
-    const button = e.target.closest('button');
+    const button = e.target.closest('button') || e.target.closest('.rg-case-table tbody tr')?.querySelector('button');
     if (!button) return;
     if (button.dataset.game === 'quit') return quit();
     if (button.dataset.game === 'accuse') return submit(suspect);
@@ -154,8 +157,12 @@ export function openChallenge(root, challenge, finish) {
     const i = Number(button.dataset.move);
     if (challenge.kind === 'thief') {
       suspect = i;
-      dialog.querySelector('[aria-pressed="true"]')?.setAttribute('aria-pressed', 'false');
+      const previous = dialog.querySelector('[aria-pressed="true"]');
+      previous?.setAttribute('aria-pressed', 'false');
+      previous?.closest('tr').classList.remove('is-picked');
       button.setAttribute('aria-pressed', 'true');
+      button.closest('tr').classList.add('is-picked');
+      dialog.querySelector('.rg-case-selection').textContent = 'Đã chọn số ' + (i + 1);
       dialog.querySelector('[data-game="accuse"]').disabled = false;
       return;
     }

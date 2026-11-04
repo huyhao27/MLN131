@@ -584,10 +584,7 @@
 .rg-game-board.is-route { gap: 3px; }
 .rg-game-board.is-route .rg-game-tile { padding: 0; min-height: 0; min-width: 0; font-size: clamp(.75rem, 2.8vw, 1rem); aspect-ratio: 1; }
 .rg-game-tile.is-checkpoint { background: #f5cf73; color: #433000; font-weight: 800; }
-.rg-case-clues { padding-inline-start: 1.3em; }
 .rg-game-tile.is-wall:disabled { background: #726754; border-color: #726754; }
-.rg-game-board.is-thief { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.rg-game-tile.rg-suspect { padding: 5px; display: grid; gap: 3px; font-size: .83rem; }
 .rg-portrait { width: 100%; max-height: 84px; }
 .rg-cake { display: block; width: min(100%, 220px); margin: auto; cursor: crosshair; }
 .rg-cake-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
@@ -610,3 +607,31 @@
 .rg-route-dialog .rg-game-tile.is-visited { background: #d3e8d3; color: #245537; }
 .rg-route-dialog .rg-game-tile.is-car { background: #165869; border-color: #165869; }
 .rg-route-dialog .rg-game-actions { justify-content: flex-end; }
+
+.rg-thief-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, calc(100vw - 16px));
+  padding: clamp(10px, 2.5vw, 20px);
+  overflow: hidden;
+}
+.rg-thief-dialog h2 { margin: 4px 0; }
+.rg-thief-dialog p { margin: 4px 0 8px; }
+.rg-case-table { min-height: 0; overflow: auto; border: 1px solid #cdbd95; border-radius: 8px; }
+.rg-case-table table { width: 100%; min-width: 620px; border-spacing: 0; font-size: .9rem; }
+.rg-case-table th, .rg-case-table td { padding: .45em .6em; text-align: left; border-bottom: 1px solid #e5dbc2; }
+.rg-case-table thead th { position: sticky; top: 0; z-index: 2; vertical-align: top; background: #f3e8cb; }
+.rg-case-table thead th small { display: block; margin-top: .25em; font-weight: 500; font-size: .86em; }
+.rg-case-table tr > :first-child { position: sticky; left: 0; }
+.rg-case-table thead th:first-child { z-index: 3; }
+.rg-case-table tbody tr { --case-row: #fffaf0; background: var(--case-row); cursor: pointer; }
+.rg-case-table tbody tr:nth-child(even) { --case-row: #f8f0dc; }
+.rg-case-table tbody tr.is-picked { --case-row: #fce0a0; }
+.rg-case-table tbody th { z-index: 1; background: var(--case-row); }
+.rg-case-suspect {
+  display: flex; align-items: center; gap: .35em; padding: 2px; min-height: 40px;
+  white-space: nowrap; cursor: pointer; background: transparent; border: 0; color: inherit; font: inherit;
+}
+.rg-case-suspect .rg-portrait { width: 32px; height: 32px; }
+.rg-thief-dialog .rg-game-actions { align-items: center; justify-content: flex-end; margin-top: 10px; }
+.rg-case-selection { margin-inline-end: auto; font-weight: 700; }
