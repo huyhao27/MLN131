@@ -96,9 +96,10 @@ export function createRegionUI(rootEl, {
   function updateSafe() {
     const hudBox = boxOf(topEl.querySelector('.rg-hud'));
     const nextBox = boxOf(topEl.querySelector('.rg-next-wrap'));
-    const topBottom = Math.max(hudBox ? hudBox.y + hudBox.h : 0, nextBox ? nextBox.y + nextBox.h : 0);
+    const businessBox = boxOf(topEl.querySelector('.rg-business'));
+    const topBottom = Math.max(hudBox ? hudBox.y + hudBox.h : 0, nextBox ? nextBox.y + nextBox.h : 0, businessBox ? businessBox.y + businessBox.h : 0);
     ui.style.setProperty('--top-h', `${Math.round(topBottom || 0)}px`);
-    const rects = [hudBox, nextBox, boxOf(topEl.querySelector('.rg-confirm')), boxOf(newsEl.firstElementChild ? newsEl : null), boxOf(keyhintEl)];
+    const rects = [hudBox, nextBox, businessBox, boxOf(topEl.querySelector('.rg-confirm')), boxOf(newsEl.firstElementChild ? newsEl : null), boxOf(keyhintEl)];
     const hide = [];
     if (!panelEl.hidden) {
       // Offsets, not the bounding box: the panel may be mid slide-in animation.

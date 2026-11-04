@@ -28,8 +28,8 @@ export function renderTop(view, { confirmOpen = false, testMode = false } = {}) 
   const last = view.period >= view.totalPeriods;
   const business = view.business;
   const businessTitle = business ? BUSINESS_TITLES[business.challenge.kind] : '';
-  const businessLabel = business?.status === 'ready' ? 'Kinh doanh · +' + business.prize + ' nếu thắng' :
-    business?.status === 'won' ? 'Kinh doanh · +' + business.reward : 'Kinh doanh · hết lượt';
+  const businessLabel = business?.status === 'ready' ? 'Chơi minigame' :
+    business?.status === 'won' ? 'Đã nhận +' + business.reward + ' ngân sách' : 'Đã hết lượt';
   // Two compact pills at the top corners; the strip between them is map (pointer-events: none).
   return `
     <div class="rg-top-row">
@@ -53,7 +53,12 @@ export function renderTop(view, { confirmOpen = false, testMode = false } = {}) 
         </button>
         ${confirmOpen ? confirmHtml(view, warns, last) : ''}
       </div>
-    </div>`;
+    </div>
+    ${business ? `<button type="button" class="rg-btn is-primary rg-business" data-action="business"
+      ${business.status === 'ready' ? '' : 'disabled'}>
+      <b>${businessLabel}</b>
+      <span>${businessTitle}${business.status === 'ready' ? ' · +' + business.prize + ' nếu thắng' : ''}</span>
+    </button>` : ''}`;
 }
 
 function confirmHtml(view, warns, last) {
