@@ -2,6 +2,7 @@
 // Events follow doc 05: RV01 Hồ xuống thấp, RV05 Được mùa kho đầy, RV07 Đơn hàng lớn,
 // H01 Xưởng phải chia ca, RV13 Nhà trẻ hết chỗ, RV20 Kho lạnh, RV04 Sạt lở đường.
 // Numbers are illustrative only.
+import { BRIEFING } from '../../regions/data/briefing.js';
 
 const svc = (id, label, need, have) => ({
   id, label, need, have, status: have >= need ? 'ok' : have >= need * 0.85 ? 'tight' : 'short',
@@ -38,12 +39,7 @@ const BRIEF_REGIONS = [
 export const MOCK_BRIEFING = {
   mode: 'regions', phase: 'briefing', period: 0, totalPeriods: 8,
   budget: 12, incomeNext: 8, upkeep: 0, slots: { used: 0, max: 2 },
-  title: 'Hòa Minh cần một người điều phối',
-  paragraphs: [
-    'Đảo Hòa Minh có sáu vùng, mỗi vùng một nhịp sống: xưởng Thiên Hà, đồng bằng lúa, đô thị trung tâm, khu dân cư, vùng cao Bản Mây và bến cảng.',
-    'Mỗi kỳ, vài vùng sẽ báo vấn đề hoặc cơ hội. Ngân sách có hạn và chỉ được thi công tối đa hai dự án dài hạn cùng lúc, nên bạn phải chọn ưu tiên.',
-    'Quyết định ở vùng này có thể lan sang vùng khác. Hãy để ý các đường nối trên bản đồ.',
-  ],
+  ...BRIEFING,
   regions: BRIEF_REGIONS,
   problems: [], projects: [], links: LINKS, news: [],
   national: { output: 48, wellbeing: 50, access: 50, gap: 26, overall: 49 },

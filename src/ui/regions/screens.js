@@ -7,17 +7,17 @@ export function renderBriefing(view) {
   const paras = view.paragraphs ?? [];
   return `
     <div class="rg-brief" role="dialog" aria-modal="false" aria-labelledby="rg-brief-title">
-      <p class="rg-eyebrow">Hòa Minh · chế độ quản lý vùng</p>
-      <h1 id="rg-brief-title" class="rg-brief-title">${esc(view.title ?? 'Điều hành đất nước qua bản đồ vùng')}</h1>
+      <p class="rg-eyebrow">The Transition · Bàn giao nhiệm kỳ</p>
+      <h1 id="rg-brief-title" class="rg-brief-title">${esc(view.title ?? 'Chào mừng, Thủ tướng!')}</h1>
       ${paras.map((t) => `<p>${esc(t)}</p>`).join('')}
-      <ol class="rg-steps" aria-label="Vòng chơi">
-        <li>${icon('attention')}<span>Nhìn bản đồ: nơi nào đang cần quan tâm</span></li>
-        <li>${icon('NN')}<span>Chọn vùng (bấm hoặc phím 1–6)</span></li>
-        <li>${icon('budget')}<span>Chọn cách xử lý trong ngân sách (A/B/C)</span></li>
-        <li>${icon('next')}<span>Sang kỳ tiếp theo (N) và xem vùng thay đổi</span></li>
+      <ol class="rg-steps" aria-label="Công việc của Thủ tướng mỗi kỳ">
+        <li>${icon('attention')}<span><b>Đọc báo cáo.</b> Xem vùng nào đang cần hỗ trợ hoặc có cơ hội.</span></li>
+        <li>${icon('NN')}<span><b>Chọn ưu tiên.</b> Bấm vào vùng hoặc dùng phím 1–6 để xem việc.</span></li>
+        <li>${icon('budget')}<span><b>Duyệt phương án.</b> Cân chi phí và thời gian, rồi chọn A/B/C.</span></li>
+        <li>${icon('next')}<span><b>Sang kỳ.</b> Bấm N để xem việc nào đã xong và vùng nào chịu tác động.</span></li>
       </ol>
       <div class="rg-brief-actions">
-        <button type="button" class="rg-btn is-primary is-big" data-action="start">Bắt đầu điều hành <kbd>Enter</kbd></button>
+        <button type="button" class="rg-btn is-primary is-big" data-action="start">Bắt đầu nhiệm kỳ <kbd>Enter</kbd></button>
       </div>
     </div>`;
 }

@@ -3,6 +3,7 @@
 //   game.view(); game.act({ type: 'choose', problem: 'p3', option: 'A' }); game.act({ type: 'endPeriod' });
 import { bus as coreBus } from '../core/bus.js';
 import { CONFIG, REGION_ORDER, INDICATORS } from './data/config.js';
+import { BRIEFING } from './data/briefing.js';
 import { REGIONS, BUILT, TOPICS, serviceLabel } from './data/regions.js';
 import { SHORT_TITLES } from './data/events.js';
 import {
@@ -13,13 +14,7 @@ import {
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const ORIGIN_LABEL = { random: 'Ngẫu nhiên', consequence: 'Hệ quả', opportunity: 'Cơ hội' };
 
-export const BRIEFING = {
-  title: 'The Transition — Điều hành theo vùng',
-  paragraphs: [
-    `Bạn có ${CONFIG.periods} kỳ để giữ sáu vùng Hòa Minh chạy ngon. Chọn nơi đang báo việc, cân tiền rồi sang kỳ để xem chuyện gì xảy ra.`,
-    'Đẩy xe hàng sang vùng bên có thể cứu việc hôm nay nhưng làm tắc bến ngày mai. Thử minigame khi có biểu tượng 🎮 để tiết kiệm 1 ngân sách.',
-  ],
-};
+export { BRIEFING };
 
 const deadlineText = (p, period) => {
   if (p.deadline == null) return null;
