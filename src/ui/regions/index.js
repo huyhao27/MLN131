@@ -8,6 +8,7 @@ import { createLabels } from './labels.js';
 import { renderTop, renderNews, pendingWarnings } from './hud.js';
 import { renderRegion, renderProblem } from './panel.js';
 import { renderBriefing, renderEnd } from './screens.js';
+import { openChallenge } from './challenge.js';
 import { REGION_ORDER, regionMeta } from './text.js';
 
 const OPTION_KEYS = ['a', 'b', 'c', 'd'];
@@ -268,6 +269,7 @@ export function createRegionUI(rootEl, {
   }
 
   function choose(optId, { fromKey = false } = {}) {
+    if (st.acting || rootEl.querySelector('.rg-challenge[open]')) return;
     const p = findProblem(st.problem);
     if (!p || !isPeriod()) return;
     const o = p.options?.find((x) => String(x.id) === String(optId));
@@ -285,11 +287,15 @@ export function createRegionUI(rootEl, {
       if (btn) { btn.classList.remove('is-shake'); void btn.offsetWidth; btn.classList.add('is-shake'); }
       return;
     }
-    st.choseAt = now;
-    btn?.classList.add('is-picked');
-    if (act({ type: 'choose', problem: p.instanceId, option: o.id }, btn)) {
-      toast(`Đã chọn: ${o.label}`, 'is-good');
-    }
+    const commit = (moves) => {
+      st.choseAt = performance.now();
+      btn?.classList.add('is-picked');
+      if (act({ type: 'choose', problem: p.instanceId, option: o.id, moves }, btn)) {
+        toast(`Đã chọn: ${o.label}${moves ? ' · tiết kiệm 1 ngân sách' : ''}`, 'is-good');
+      }
+    };
+    if (o.challenge) openChallenge(ui, o.challenge, commit);
+    else commit();
   }
 
   function nextPeriod(confirmed = false) {
@@ -319,7 +325,7 @@ export function createRegionUI(rootEl, {
   }
 
   function onKey(e) {
-    if (e.defaultPrevented || e.isComposing) return;
+    if (e.defaultPrevented || e.isComposing || rootEl.querySelector('.rg-challenge[open]')) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (!st.view) return;

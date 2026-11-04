@@ -5,9 +5,13 @@ import { mulberry32, fnv1a } from '../core/rng.js';
 import { CONFIG, BASE_PARAMS, REGION_ORDER, INDICATORS } from './data/config.js';
 import { REGIONS, BUILT, LINKS, TOPICS, serviceLabel } from './data/regions.js';
 import { EVENTS, SHORTAGE_PROBLEMS, DIRECT_CONSEQUENCES, OPENING } from './data/events.js';
+import { EXPANDED_EVENTS, LINKED_EVENTS } from './data/expanded-events.js';
+import { challengeFor, playChallenge } from './challenges.js';
+
+export const ROOT_EVENTS = [...EVENTS, ...EXPANDED_EVENTS];
 
 export const EVENT_BY_ID = Object.fromEntries(
-  [...EVENTS, ...SHORTAGE_PROBLEMS, ...Object.values(DIRECT_CONSEQUENCES)].map((e) => [e.id, e]),
+  [...ROOT_EVENTS, ...SHORTAGE_PROBLEMS, ...Object.values(DIRECT_CONSEQUENCES), ...LINKED_EVENTS].map((e) => [e.id, e]),
 );
 const SHORTAGE_BY_KEY = Object.fromEntries(SHORTAGE_PROBLEMS.map((e) => [`${e.service}:${e.region}`, e]));
 
@@ -261,8 +265,14 @@ export function applyOps(s, ops = [], src = {}) {
         break;
       case 'spawn': {
         const def = EVENT_BY_ID[op.id];
-        if (def && !openOfFamily(s, def.family, op.region || def.region)) {
-          openProblem(s, def, { region: op.region, depth: (src.depth ?? 0) + 1, parent: src.problem, causes: def.causes });
+        const depth = (src.depth ?? 0) + 1;
+        if (def && depth <= CONFIG.maxDepth && !openOfFamily(s, def.family, op.region || def.region)) {
+          const parent = s.problems.find((p) => p.instanceId === src.problem);
+          openProblem(s, def, {
+            region: op.region, depth, parent: src.problem,
+            causes: dedupe([...(parent?.causes || []), src.title, ...(def.causes || [])]),
+            origin: 'consequence',
+          });
         }
         break;
       }
@@ -334,7 +344,13 @@ export function optionStates(s, p) {
   });
 }
 
-export function choose(s, instanceId, optionId) {
+export function optionChallenge(s, p, option) {
+  const starter = { RV01: 'switches', RV02: 'cargo', RV03: 'switches', RV04: 'route', RV05: 'cargo', RV15: 'route', RV17: 'cargo' };
+  const kind = option.minigame || (option.id === 'A' ? starter[p.rootId] : null);
+  return challengeFor(s.seed, p.instanceId, option.id, kind);
+}
+
+export function choose(s, instanceId, optionId, moves) {
   const p = s.problems.find((x) => x.instanceId === instanceId);
   if (!p || !isOpen(p)) throw new Error(`problem ${instanceId} is not open`);
   const st = optionStates(s, p).find((x) => x.def.id === optionId);
@@ -343,15 +359,17 @@ export function choose(s, instanceId, optionId) {
   const o = st.def;
   const def = EVENT_BY_ID[p.rootId];
   const src = { title: def.title, problem: p.instanceId, depth: p.depth, region: p.region };
+  const bonus = moves !== undefined && playChallenge(optionChallenge(s, p, o), moves)?.solved ? 1 : 0;
 
-  s.budget -= o.cost;
+  s.budget -= o.cost - bonus;
+  if (bonus) pushNews(s, 'Thử thách hoàn tất · tiết kiệm 1 ngân sách', 'good', { region: p.region, problem: p.instanceId });
   if (o.upkeep) s.upkeeps.push({ v: o.upkeep.v, from: s.period, until: s.period + o.upkeep.n - 1, label: o.label });
   const delay = o.delay || 0;
   const maxN = Math.max(0, ...(o.now || []).filter((x) => x.t === 'mod' && !x.tag).map((x) => x.n));
   // Shortage problems close only when the service recovers; others when the option lands.
   p.chosen = { option: o.id, label: o.label, period: s.period, completesAt: s.period + delay, until: s.period + Math.max(delay, maxN - 1), close: o.close || (def.service ? 'when' : 'done') };
   p.status = 'working';
-  s.decisions.push({ period: s.period, region: p.region, problem: p.instanceId, rootId: p.rootId, title: def.title, option: o.id, label: o.label, cost: o.cost, topic: def.topic });
+  s.decisions.push({ period: s.period, region: p.region, problem: p.instanceId, rootId: p.rootId, title: def.title, option: o.id, label: o.label, cost: o.cost - bonus, topic: def.topic });
 
   applyOps(s, o.now, src);
   if (o.project) {
@@ -473,6 +491,7 @@ export function beginPeriod(s) {
   s.mods = s.mods.filter((m) => m.until >= s.period);
   s.upkeeps = s.upkeeps.filter((u) => u.until >= s.period);
 
+  const beforeDue = s.problems.length;
   const due = s.scheduled.filter((x) => x.at <= s.period);
   s.scheduled = s.scheduled.filter((x) => x.at > s.period);
   for (const x of due) applyOps(s, LATER[x.opsId], x.src);
@@ -499,7 +518,7 @@ export function beginPeriod(s) {
 
   // Shortages open consequence problems (deduplicated by service and region).
   c = context(s);
-  let created = 0;
+  let created = s.problems.length - beforeDue;
   for (const r of REGION_ORDER) {
     for (const [id, x] of Object.entries(c.svc[r])) {
       if (x.status !== 'short') continue;
@@ -563,7 +582,7 @@ export function shortageCause(s, service, region) {
   causes.sort((a, b) => (b.depth || 0) - (a.depth || 0));
   const top = causes[0];
   const p = s.problems.find((x) => x.instanceId === top.problem);
-  const chain = p && p.causes.length ? [...p.causes.slice(0, -1), top.src] : [top.src];
+  const chain = [...(p?.causes || []), top.src];
   return { chain: dedupe(chain), depth: top.depth || 0, problem: top.problem };
 }
 const dedupe = (arr) => arr.filter((x, i) => x && arr.indexOf(x) === i);
@@ -610,7 +629,7 @@ export function drawRoot(s, salt = 'draw', chance = CONFIG.draw.chance) {
   if (openRoots >= cfg.attention) return null;
   const rng = rngFor(s, salt);
   if (rng() >= chance) return null;
-  const pool = eligibleRoots(s, EVENTS);
+  const pool = eligibleRoots(s, ROOT_EVENTS);
   if (!pool.length) return null;
   const urgent = new Set(REGION_ORDER.filter((r) => regionStatus(s, r).status === 'urgent'));
   const e = pickWeighted(rng, pool, (ev) => {

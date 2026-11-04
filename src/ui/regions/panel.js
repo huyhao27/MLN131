@@ -1,6 +1,5 @@
 // Right-side region panel: region overview, then one problem with its options.
 import { esc } from '../util.js';
-import { chapterLabel } from '../labels.js';
 import {
   icon, regionMeta, statusText, chainHtml, signedNum, costText, delayText,
   INDICATORS, ORIGIN_TEXT, PROBLEM_STATUS_TEXT, SEVERITY_TEXT, SERVICE_STATUS_TEXT, LINK_KIND_TEXT,
@@ -112,9 +111,8 @@ export function renderRegion(view, regionId) {
         ${probs.length ? `<ul class="rg-pcards">${probs.map((p) => problemCard(view, p)).join('')}</ul>`
           : '<p class="rg-empty">Không có vấn đề đang mở. Vùng có thể chờ để bạn lo nơi khác.</p>'}
       </section>
-      ${indicatorsHtml(r)}
-      ${servicesHtml(r)}
       ${projectsHtml(view, r)}
+      <details class="rg-learn"><summary>Số liệu vùng</summary>${indicatorsHtml(r)}${servicesHtml(r)}</details>
     </div>`;
 }
 
@@ -130,6 +128,7 @@ function optionHtml(view, p, o, i, locked) {
       <span class="rg-fact is-cost">${icon('budget')}${esc(cost[0])}</span>
       ${cost[1] ? `<span class="rg-fact is-upkeep">${icon('upkeep')}${esc(cost[1])}</span>` : ''}
       <span class="rg-fact">${icon('clock')}${esc(delayText(o))}</span>
+      ${o.challenge ? '<span class="rg-fact is-project">🎮 Thử thách tùy chọn</span>' : ''}
       ${o.project ? `<span class="rg-fact is-project">${icon('project')}Dự án dài hạn · ${esc((view.slots?.used ?? 0))}/${esc(view.slots?.max ?? 2)} chỗ</span>` : ''}
     </span>
     ${o.preview ? `<span class="rg-opt-preview">${esc(o.preview)}</span>` : ''}
@@ -160,10 +159,5 @@ export function renderProblem(view, p) {
       <h3 class="rg-sec-title">${locked ? 'Các cách đã cân nhắc' : 'Chọn cách xử lý'}</h3>
       <ul class="rg-opts">${(p.options ?? []).map((o, i) => optionHtml(view, p, o, i, locked)).join('')}</ul>
       ${p.wait?.preview && !locked ? `<p class="rg-wait">${icon('wait')}<span><b>Chờ:</b> ${esc(p.wait.preview)}</span></p>` : ''}
-      ${p.learn ? `<details class="rg-learn"><summary>${icon('book')}Liên hệ môn học</summary>
-        <p><b>${esc(p.learn.topic)}</b>${p.learn.chapter ? ` <span class="rg-muted">· ${esc(chapterLabel(p.learn.chapter))}</span>` : ''}</p>
-        ${p.learn.note ? `<p>${esc(p.learn.note)}</p>` : ''}
-      </details>` : ''}
-      ${p.code ? `<p class="rg-code rg-muted">Mã ${esc(p.code)}</p>` : ''}
     </div>`;
 }

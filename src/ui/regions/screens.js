@@ -84,7 +84,6 @@ export function renderEnd(view) {
   const regionName = (id) => esc(regionMeta(view, id).short);
   const ids = REGION_ORDER.filter((id) => s.before?.[id] || s.after?.[id]);
   const seen = (s.topics ?? []).filter((t) => t.seen);
-  const unseen = (s.topics ?? []).filter((t) => !t.seen);
   return `
     <div class="rg-end" role="dialog" aria-modal="false" aria-labelledby="rg-end-title">
       <header class="rg-end-head">
@@ -118,10 +117,9 @@ export function renderEnd(view) {
 
         <details class="rg-end-more"><summary>${icon('income')}Số liệu cả nước qua các kỳ</summary>${lineChart(s.timeline)}</details>
 
-        <details class="rg-end-more"><summary>${icon('book')}Liên hệ môn học (${seen.length}/${(s.topics ?? []).length} chủ đề đã gặp)</summary>
-          ${seen.length ? `<h3 class="rg-sec-title">Đã gặp trong ván</h3><ul class="rg-topics">${seen.map((t) => `<li class="is-seen">${icon('stable')}<span><b>${esc(t.topic)}</b>${t.chapter ? ` <span class="rg-muted">· ${esc(chapterLabel(t.chapter))}</span>` : ''}${(t.via ?? []).length ? `<span class="rg-via">qua: ${t.via.map(esc).join('; ')}</span>` : ''}</span></li>`).join('')}</ul>` : ''}
-          ${unseen.length ? `<h3 class="rg-sec-title">Chưa gặp trong ván này</h3><p class="rg-muted">Phiên này ngắn hoặc chưa đi qua các tình huống đó; không tính là đã học.</p><ul class="rg-topics">${unseen.map((t) => `<li class="is-unseen">${icon('neutral')}<span>${esc(t.topic)}${t.chapter ? ` <span class="rg-muted">· ${esc(chapterLabel(t.chapter))}</span>` : ''}</span></li>`).join('')}</ul>` : ''}
-        </details>
+        ${seen.length ? `<details class="rg-end-more"><summary>${icon('book')}Gợi ý thảo luận</summary>
+          <ul class="rg-topics">${seen.map((t) => `<li><span><b>${esc(t.topic)}</b>${t.chapter ? ` <span class="rg-muted">· ${esc(chapterLabel(t.chapter))}</span>` : ''}</span></li>`).join('')}</ul>
+        </details>` : ''}
 
         ${(s.decisions ?? []).length ? `<details class="rg-end-more"><summary>${icon('keys')}Các quyết định đã đưa ra (${s.decisions.length})</summary>
           <ol class="rg-decisions">${s.decisions.map((d) => `<li><span class="rg-muted">Kỳ ${esc(d.period)} · ${regionName(d.region)}</span> ${esc(d.title)} → <b>${esc(d.option)}</b></li>`).join('')}</ol>

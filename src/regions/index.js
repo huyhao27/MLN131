@@ -6,7 +6,7 @@ import { CONFIG, REGION_ORDER, INDICATORS } from './data/config.js';
 import { REGIONS, BUILT, TOPICS, serviceLabel } from './data/regions.js';
 import { SHORT_TITLES } from './data/events.js';
 import {
-  initialState, beginPeriod, endPeriod, choose, optionStates, computeServices, params, context,
+  initialState, beginPeriod, endPeriod, choose, optionStates, optionChallenge, computeServices, params, context,
   income, upkeepNow, slotsUsed, national, regionStatus, regionScore, isOpen, EVENT_BY_ID,
 } from './engine.js';
 
@@ -16,10 +16,8 @@ const ORIGIN_LABEL = { random: 'Ngẫu nhiên', consequence: 'Hệ quả', oppor
 export const BRIEFING = {
   title: 'The Transition — Điều hành theo vùng',
   paragraphs: [
-    'Bạn điều hành Cộng hòa Hòa Minh — một quốc gia hư cấu gồm sáu vùng: Thiên Hà công nghiệp, Đồng bằng nông nghiệp, Đô thị trung tâm, Khu dân cư, Vùng cao Bản Mây và Duyên hải – cảng.',
-    'Mỗi kỳ, vài vùng sẽ báo vấn đề hoặc cơ hội trên bản đồ. Bạn tự chọn vùng ghé trước, chọn cách xử lý trong giới hạn ngân sách và tối đa hai công trình cùng lúc, rồi bấm “Sang kỳ tiếp theo”.',
-    'Các vùng nối với nhau bằng điện, nước, đường, cảng và người lao động. Cứu vùng này có thể làm khó vùng khác một kỳ — hãy theo dõi bản tin để thấy vì sao.',
-    `Nhiệm kỳ có ${CONFIG.periods} kỳ. Địa danh, số liệu và quan hệ tác động đều là giả định để mô phỏng, không mô tả quốc gia có thật.`,
+    `Bạn có ${CONFIG.periods} kỳ để giữ sáu vùng Hòa Minh chạy ngon. Chọn nơi đang báo việc, cân tiền rồi sang kỳ để xem chuyện gì xảy ra.`,
+    'Đẩy xe hàng sang vùng bên có thể cứu việc hôm nay nhưng làm tắc bến ngày mai. Thử minigame khi có biểu tượng 🎮 để tiết kiệm 1 ngân sách.',
   ],
 };
 
@@ -66,6 +64,7 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
         preview: o.preview,
         disabled,
         reason,
+        challenge: !disabled ? optionChallenge(s, p, o) : null,
       })),
       wait: def.wait ? { preview: def.wait } : null,
       chosen: p.chosen ? { option: p.chosen.option, label: p.chosen.label, period: p.chosen.period, completesAt: p.chosen.completesAt, completed: !!p.chosen.completed } : null,
@@ -207,7 +206,7 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
       text = 'Các vấn đề chồng lên nhau nhanh hơn khả năng xử lý. Nhìn lại chuỗi quyết định để thấy chỗ nào một lựa chọn khác có thể chặn được sự lan rộng.';
     } else {
       headline = 'Đi từng bước, còn việc dang dở';
-      text = `Có những tiến bộ thật${best ? ` ở ${best}` : ''}, song nhiều việc mới ở giữa chừng. Thời kỳ quá độ là quá trình lâu dài với nhiều mâu thuẫn cần xử lý dần.`;
+      text = `Có nơi đã chạy tốt hơn${best ? `, rõ nhất ở ${best}` : ''}. Vẫn còn việc để xử lý ở nhiệm kỳ sau.`;
     }
 
     return {
@@ -231,7 +230,7 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
         return;
       case 'choose':
         if (s.phase !== 'period') throw new Error('not in a period');
-        choose(s, action.problem, action.option);
+        choose(s, action.problem, action.option, action.moves);
         return;
       case 'endPeriod':
         if (s.phase !== 'period') throw new Error('not in a period');

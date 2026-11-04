@@ -538,3 +538,36 @@
   .rg-ui *, .rg-ui *::before, .rg-ui *::after { animation: none !important; transition: none !important; }
 }
 .rg-ui.is-reduced *, .rg-ui.is-reduced *::before, .rg-ui.is-reduced *::after { animation: none !important; transition: none !important; }
+
+/* Optional field challenges sit above the map and trap focus with a native dialog. */
+.rg-challenge {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 22px;
+  border: 2px solid #cdbd95;
+  border-radius: 20px;
+  color: #242d34;
+  background: #fff9e9;
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 14px 50px #14293466;
+}
+.rg-challenge::backdrop { background: #142934aa; }
+.rg-challenge h2 { margin: 8px 0; font-size: 1.5rem; }
+.rg-challenge p { margin: 10px 0; }
+.rg-game-kicker { color: #58512f; font-weight: 700; }
+.rg-game-board { display: grid; gap: 6px; margin-top: 14px; }
+.rg-game-board.is-route { grid-template-columns: repeat(4, 1fr); max-width: 280px; margin-inline: auto; }
+.rg-game-board.is-cargo { grid-template-columns: repeat(3, 1fr); }
+.rg-game-board.is-switches { grid-template-columns: repeat(5, 1fr); }
+.rg-game-tile {
+  min-height: 42px; padding: 4px;
+  border: 1px solid #aa9c77; border-radius: 8px;
+  background: #fff; color: #242d34; cursor: pointer; font: 700 1.1rem system-ui;
+}
+.rg-game-tile:disabled { background: #eee8d8; cursor: default; }
+.rg-game-tile[aria-pressed="true"] { background: #ffe0a0; outline: 2px solid #846628; }
+.rg-game-tile:focus-visible { outline: 3px solid #18599a; }
+.rg-game-status { min-height: 1.5em; font-weight: 700; }
+.rg-game-actions { display: flex; flex-wrap: wrap; gap: 8px; }

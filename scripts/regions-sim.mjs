@@ -4,7 +4,8 @@
 //   npm run sim:regions                 -> all strategies
 //   npm run sim:regions -- --runs 50 --verbose
 import { createRegionGame } from '../src/regions/index.js';
-import { initialState, beginPeriod, computeServices, EVENT_BY_ID } from '../src/regions/engine.js';
+import { initialState, beginPeriod, endPeriod, choose, openProblem, computeServices, optionChallenge, ROOT_EVENTS, EVENT_BY_ID } from '../src/regions/engine.js';
+import { challengeFor, playChallenge } from '../src/regions/challenges.js';
 import { CONFIG, REGION_ORDER } from '../src/regions/data/config.js';
 import { EVENTS } from '../src/regions/data/events.js';
 import { mulberry32 } from '../src/core/rng.js';
@@ -195,6 +196,61 @@ function play(name, seed, { trace = false } = {}) {
 // ------------------------------------------------------------------ rule tests (doc 05 §12)
 
 function ruleTests() {
+  assert(ROOT_EVENTS.length >= 3 * 28, 'root catalogue has tripled');
+  // Same local breakdown, different decisions: only transferring or ignoring it
+  // creates the linked job, and it changes the recipient's actual supply.
+  {
+    const outcomes = {};
+    for (const choice of ['A', 'B', 'wait']) {
+      const s = initialState(4242);
+      s.phase = 'period'; s.period = 3;
+      const root = openProblem(s, EVENT_BY_ID.RV40); // spoiled vegetables, reduced food supply
+      if (choice !== 'wait') choose(s, root.instanceId, choice);
+      endPeriod(s);
+      const linked = s.problems.find(p => p.rootId === 'LV40');
+      outcomes[choice] = computeServices(s).svc.DC.food.have;
+      assert(!!linked === (choice !== 'A'), `RV40 ${choice} determines if a linked job appears`);
+      if (linked) {
+        assert(linked.region === 'DC' && linked.parent === root.instanceId && linked.causes.includes(EVENT_BY_ID.RV40.title), 'linked job has the actual parent and destination');
+        if (choice === 'B') {
+          choose(s, linked.instanceId, 'A');
+          assert(computeServices(s).svc.DC.food.have > outcomes.B, 'resolving the linked job restores food supply');
+        }
+      }
+    }
+    assert(outcomes.A > outcomes.B && outcomes.A > outcomes.wait, 'linked job lowers food available in the affected region');
+  }
+  function solve(challenge, moves = []) {
+    const state = playChallenge(challenge, moves);
+    if (!state) return null;
+    if (state.solved) return moves;
+    if (moves.length === challenge.limit) return null;
+    const size = { route: 16, cargo: 6, switches: 5 }[challenge.kind];
+    for (let i = 0; i < size; i++) {
+      const solution = solve(challenge, [...moves, i]);
+      if (solution) return solution;
+    }
+    return null;
+  }
+  for (const kind of ['route', 'cargo', 'switches']) {
+    for (let seed = 1; seed <= 20; seed++) {
+      assert(solve(challengeFor(seed, 'p1', 'A', kind)), `${kind} has a legal solution (seed ${seed})`);
+    }
+  }
+  {
+    const budgets = [];
+    for (const mode of ['skip', 'solve', 'invalid']) {
+      const s = initialState(2026);
+      s.period = 2; s.phase = 'period';
+      const p = openProblem(s, EVENT_BY_ID.RV29);
+      const challenge = optionChallenge(s, p, EVENT_BY_ID.RV29.options[0]);
+      const moves = mode === 'solve' ? solve(challenge) : mode === 'invalid' ? [99] : undefined;
+      choose(s, p.instanceId, 'A', moves);
+      budgets.push(s.budget);
+      assert(p.outcome === 'resolved', `optional challenge ${mode} still resolves the decision`);
+    }
+    assert(budgets[1] === budgets[0] + 1 && budgets[2] === budgets[0], 'only a legal solution earns the budget reward');
+  }
   // Same seed + same decisions -> same story.
   const a = play('manager', 4242).v, b = play('manager', 4242).v;
   assert(JSON.stringify(a) === JSON.stringify(b), 'same seed must replay identically');
@@ -291,7 +347,7 @@ for (const [n, r] of Object.entries(results)) {
   console.log(`${n.padEnd(9)} ${f(r.overall)} ${f(r.gap)} | ${f(r.attention)} ${f(r.open)} ${String(r.maxOpen).padStart(6)} | ${f(r.roots)} ${f(r.small)} ${f(r.big)} ${f(r.opps)} ${f(r.cons)} | ${f(r.decisions)} ${f(r.shortages)} | ${f(r.minBudget)} ${f(r.maxBudget)} | ${heads}`);
 }
 console.log('\nEvents drawn (all runs):', Object.entries(drawn).sort().map(([k, n]) => `${k}=${n}`).join(' '));
-const never = [...EVENTS.map((e) => e.id)].filter((id) => !drawn[id]);
+const never = ROOT_EVENTS.map((e) => e.id).filter((id) => !drawn[id]);
 if (never.length) console.log('Never drawn:', never.join(' '));
 
 if (!ONLY) {
