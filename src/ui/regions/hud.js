@@ -47,10 +47,10 @@ export function renderTop(view, { confirmOpen = false, testMode = false } = {}) 
         ${testMode ? '<span class="rg-badge-test">Thử nghiệm</span>' : ''}
       </div>
       <div class="rg-next-wrap">
-        ${business ? `<button type="button" class="rg-btn rg-business" data-action="business" title="${businessTitle}" ${business.status === 'ready' ? '' : 'disabled'}>${businessLabel}</button>` : ''}
         <button type="button" class="rg-next${hard ? ' has-warn' : ''}" data-action="next" aria-keyshortcuts="N"${hard ? ` title="Còn ${hard} việc gấp chưa xử lý"` : ''}>
           ${hard ? icon('attention') : icon('next')}<span>${last ? 'Kết thúc ván' : 'Sang kỳ tiếp theo'}</span><kbd>N</kbd>
         </button>
+        <button type="button" class="rg-btn rg-reset" data-action="reset-progress">${icon('restart')}Reset tiến trình</button>
         ${confirmOpen ? confirmHtml(view, warns, last) : ''}
       </div>
     </div>

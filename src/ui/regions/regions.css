@@ -99,6 +99,7 @@
 .rg-badge-test { font-size: 0.75em; padding: 0.15em 0.45em; border-radius: 0.4em; background: var(--random-bg); color: var(--random); font-weight: 700; }
 
 .rg-next-wrap { position: relative; flex: none; margin-left: auto; pointer-events: none; }
+.rg-ui .rg-reset { display: flex; pointer-events: auto; margin: .45em 0 0 auto; }
 .rg-ui .rg-next {
   pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45em;
   padding: 0.42em 0.8em; border-radius: 0.6em; border: 2px solid var(--accent);

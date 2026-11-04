@@ -439,6 +439,11 @@ export function createRegionUI(rootEl, {
     else if (a === 'news-toggle') { st.newsOpen = !st.newsOpen; renderNewsStrip(); }
     else if (a === 'panel-min') { st.panelMin = !st.panelMin; renderPanel(); }
     else if (a === 'start') act({ type: 'start' });
+    else if (a === 'reset-progress') {
+      if (isPeriod() && !st.acting && window.confirm('Xóa tiến trình của ván hiện tại và quay về màn bắt đầu?')) {
+        if (act({ type: 'restart' })) overlayEl.querySelector('[data-action="start"]')?.focus();
+      }
+    }
     else if (a === 'restart') act({ type: 'restart' });
   });
 
