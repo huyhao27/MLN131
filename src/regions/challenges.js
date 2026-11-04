@@ -43,23 +43,10 @@ function neighbors(tile, size) {
     .filter(n => n !== false);
 }
 
-function distances(open, from, size) {
-  const distance = new Map([[from, 0]]);
-  const queue = [from];
-  for (const tile of queue) {
-    for (const next of neighbors(tile, size)) {
-      if (!open.has(next) || distance.has(next)) continue;
-      distance.set(next, distance.get(tile) + 1);
-      queue.push(next);
-    }
-  }
-  return distance;
-}
-
 function route(rng) {
   const size = 13;
   const start = 0;
-  const goal = size * size - 1;
+  let longest = [start];
   const open = new Set([start]);
   // Grow a maze tree from the start, with walls between logical cells.
   const path = [start];
@@ -71,31 +58,18 @@ function route(rng) {
     }));
     if (!next) {
       path.pop();
+      path.pop();
       continue;
     }
     open.add(next[0]);
     open.add(next[1]);
-    path.push(next[1]);
+    path.push(...next);
+    if (path.length > longest.length) longest = [...path];
   }
-  const leaves = [...open].filter(tile =>
-    tile !== start && tile !== goal && neighbors(tile, size).filter(n => open.has(n)).length === 1);
-  // A DFS maze can be a single winding corridor. Internal cells keep both checkpoints available.
-  const stops = leaves.length >= 2 ? leaves : [...open].filter(tile => tile !== start && tile !== goal);
-  const fromStart = distances(open, start, size);
-  const fromGoal = distances(open, goal, size);
-  let checkpoints;
-  let limit = 0;
-  for (const a of stops) {
-    const fromA = distances(open, a, size);
-    for (const b of stops) {
-      if (a === b) continue;
-      const steps = fromStart.get(a) + fromA.get(b) + fromGoal.get(b);
-      if (steps > limit) {
-        checkpoints = [a, b];
-        limit = steps;
-      }
-    }
-  }
+  // A farthest leaf is the finish. Both stops lie on its unique path from the start.
+  const limit = longest.length - 1;
+  const goal = longest.at(-1);
+  const checkpoints = [longest[Math.floor(limit / 3)], longest[Math.floor(2 * limit / 3)]];
   return {
     kind: 'route', size, start, goal, checkpoints, limit,
     blocked: Array.from({ length: size * size }, (_, i) => i).filter(i => !open.has(i)),
@@ -121,6 +95,7 @@ export function evaluateBusiness(challenge, submission) {
     let visited = 0;
     for (const next of submission) {
       if ((tile === challenge.goal && visited === challenge.checkpoints.length) || !neighbors(tile, challenge.size).includes(next) || challenge.blocked.includes(next)) return null;
+      if (next === challenge.goal && visited !== challenge.checkpoints.length) return null;
       tile = next;
       if (tile === challenge.checkpoints[visited]) visited++;
     }

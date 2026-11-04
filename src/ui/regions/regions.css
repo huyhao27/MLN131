@@ -593,3 +593,20 @@
 .rg-cake-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .rg-cake-controls label { display: grid; flex: 1; }
 .rg-challenge { max-height: calc(100dvh - 24px); overflow: auto; }
+
+.rg-route-dialog { width: min(560px, calc(100vw - 16px)); padding: clamp(10px, 3vw, 20px); }
+.rg-route-dialog h2 { margin: 3px 0; }
+.rg-route-dialog p { margin: 6px 0; }
+.rg-route-dialog .rg-game-status {
+  padding: .45em .65em; border-radius: 8px; background: #e4efef; color: #174953;
+}
+.rg-route-dialog .is-route {
+  width: min(100%, 430px, max(245px, calc(100dvh - 220px)));
+  gap: 2px; margin: 8px auto;
+}
+.rg-route-dialog .rg-game-tile { border-radius: 4px; }
+.rg-route-dialog .rg-game-tile:not(:disabled) { background: #d4edf2; border-color: #358094; }
+.rg-route-dialog .rg-game-tile.is-target { background: #ffd166; color: #47300b; border-color: #9e6d12; }
+.rg-route-dialog .rg-game-tile.is-visited { background: #d3e8d3; color: #245537; }
+.rg-route-dialog .rg-game-tile.is-car { background: #165869; border-color: #165869; }
+.rg-route-dialog .rg-game-actions { justify-content: flex-end; }

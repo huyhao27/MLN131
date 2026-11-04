@@ -8,7 +8,7 @@ export const BUSINESS_TITLES = {
 
 const GUIDES = {
   thief: 'Đối chiếu cả năm dấu vết với hồ sơ của 12 nghi phạm. Mỗi dấu vết chấp nhận một trong hai giá trị. Bạn chỉ được chốt một người.',
-  route: 'Ghé trạm 1 rồi trạm 2 trước khi tới cờ đích. Số bước vừa đủ cho đường ngắn nhất. Quay đầu vẫn tốn bước.',
+  route: 'Ghé trạm 1 rồi trạm 2 trước khi tới cờ đích. Số bước vừa đủ cho đường ngắn nhất. Chọn ô kề hoặc dùng phím mũi tên.',
   cake: 'Chọn hai điểm trên viền để vạch một đường cắt. Bạn cũng có thể chỉnh hai đầu cắt bằng bàn phím. Phần nhỏ hơn phải đạt ít nhất 45%.',
 };
 
@@ -50,10 +50,13 @@ function tileButtons(challenge, moves) {
   return Array.from({ length: challenge.size ** 2 }, (_, i) => {
     const blocked = challenge.blocked.includes(i);
     const checkpoint = challenge.checkpoints.indexOf(i);
-    const glyph = state.tile === i ? '🚚' : blocked ? '' : i === challenge.goal ? '🏁' : checkpoint >= 0 ? (checkpoint < state.visited ? '✓' : checkpoint + 1) : '·';
+    const marker = blocked ? 'is-wall' : state.tile === i ? 'is-car' : checkpoint === state.visited ? 'is-target' :
+      checkpoint >= 0 ? (checkpoint < state.visited ? 'is-visited' : 'is-checkpoint') : i === challenge.goal ? 'is-finish' : '';
+    const glyph = state.tile === i ? '🚚' : blocked ? '' : i === challenge.goal ? '🏁' :
+      checkpoint >= 0 ? (checkpoint < state.visited ? '✓' : checkpoint + 1) : '';
     const enabled = !blocked && evaluateBusiness(challenge, [...moves, i]);
-    const label = `Hàng ${Math.floor(i / challenge.size) + 1}, cột ${i % challenge.size + 1}${blocked ? ', có rào' : i === challenge.goal ? ', đích' : checkpoint >= 0 ? ', trạm ' + (checkpoint + 1) : ''}`;
-    return `<button type="button" class="rg-game-tile${blocked ? ' is-wall' : checkpoint >= 0 ? ' is-checkpoint' : ''}" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
+    const label = `Hàng ${Math.floor(i / challenge.size) + 1}, cột ${i % challenge.size + 1}${state.tile === i ? ', vị trí xe' : ''}${blocked ? ', có rào' : i === challenge.goal ? ', đích' : checkpoint >= 0 ? ', trạm ' + (checkpoint + 1) : ''}`;
+    return `<button type="button" class="rg-game-tile ${marker}" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
   }).join('');
 }
 
@@ -64,7 +67,7 @@ function cakePoint(degrees) {
 
 export function openChallenge(root, challenge, finish) {
   const dialog = document.createElement('dialog');
-  dialog.className = 'rg-challenge';
+  dialog.className = 'rg-challenge' + (challenge.kind === 'route' ? ' rg-route-dialog' : '');
   dialog.setAttribute('aria-label', BUSINESS_TITLES[challenge.kind]);
   root.append(dialog);
   const moves = [];
@@ -83,7 +86,7 @@ export function openChallenge(root, challenge, finish) {
   function renderRoute() {
     dialog.querySelector('.rg-game-board').innerHTML = tileButtons(challenge, moves);
     const { visited } = evaluateBusiness(challenge, moves);
-    dialog.querySelector('.rg-game-status').textContent = `Còn ${challenge.limit - moves.length} bước · Đã ghé ${visited}/2 trạm`;
+    dialog.querySelector('.rg-game-status').textContent = `Còn ${challenge.limit - moves.length} bước · Tiếp theo: ${visited < 2 ? 'Trạm ' + (visited + 1) : 'Về đích'}`;
   }
 
   function renderCut() {
@@ -103,7 +106,8 @@ export function openChallenge(root, challenge, finish) {
         `<button type="button" class="rg-game-tile rg-suspect" data-move="${s.id}" aria-pressed="false">${portrait(s.portrait)}
         <b>Nghi phạm ${s.id + 1}</b>${s.evidence.map((value, i) =>
           `<span><span class="rg-sr">${challenge.clues[i].label} </span>${value}</span>`).join('')}</button>`).join('')}</div>`,
-    route: () => '<div class="rg-game-board is-route"></div><p class="rg-game-status" aria-live="polite"></p>',
+    route: () => `<p class="rg-game-status" aria-live="polite"></p>
+      <div class="rg-game-board is-route" role="group" aria-label="Mê cung, dùng phím mũi tên hoặc chọn ô kề" tabindex="0"></div>`,
     cake: () => `<svg class="rg-cake" viewBox="0 0 200 200" aria-hidden="true">
       <circle cx="100" cy="100" r="84" fill="#c6844f"/>
       <circle cx="100" cy="100" r="78" fill="#f2c58e" stroke="#fff0c8" stroke-width="5" stroke-dasharray="3 8"/>
@@ -143,7 +147,7 @@ export function openChallenge(root, challenge, finish) {
   dialog.addEventListener('click', e => {
     const button = e.target.closest('button');
     if (!button) return;
-    if (button.dataset.game === 'quit') return submit(null);
+    if (button.dataset.game === 'quit') return quit();
     if (button.dataset.game === 'accuse') return submit(suspect);
     if (button.dataset.game === 'cut') return submit(angles.map(cakePoint));
     if (button.dataset.move === undefined) return;
@@ -155,12 +159,34 @@ export function openChallenge(root, challenge, finish) {
       dialog.querySelector('[data-game="accuse"]').disabled = false;
       return;
     }
-    moves.push(i);
-    if (evaluateBusiness(challenge, moves).solved || moves.length === challenge.limit) return submit(moves);
-    renderRoute();
-    (dialog.querySelector('[data-move]:enabled') || dialog.querySelector('[data-game="quit"]')).focus();
+    move(i);
   });
-  dialog.addEventListener('cancel', e => { e.preventDefault(); submit(null); });
+
+  function move(i) {
+    const result = evaluateBusiness(challenge, [...moves, i]);
+    if (!result) return;
+    moves.push(i);
+    if (result.solved || moves.length === challenge.limit) return submit(moves);
+    renderRoute();
+    dialog.querySelector('.is-route').focus({ preventScroll: true });
+  }
+
+  function quit() {
+    if (challenge.kind !== 'route' || window.confirm('Bỏ lượt lái xe kỳ này?')) submit(null);
+  }
+
+  if (challenge.kind === 'route') {
+    dialog.addEventListener('keydown', e => {
+      const offsets = { ArrowUp: -challenge.size, ArrowDown: challenge.size, ArrowLeft: -1, ArrowRight: 1 };
+      const offset = offsets[e.key];
+      if (!offset) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      move(evaluateBusiness(challenge, moves).tile + offset);
+    });
+  }
+  dialog.addEventListener('cancel', e => { e.preventDefault(); quit(); });
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.showModal();
+  dialog.querySelector('.is-route')?.focus({ preventScroll: true });
 }

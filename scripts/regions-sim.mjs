@@ -253,6 +253,9 @@ function ruleTests() {
       assert(evaluateBusiness(challenge, submission)?.solved, 'each challenge has a legal solution');
       if (challenge.kind === 'route') {
         assert(submission.length === challenge.limit, 'route budget equals the shortest route with ordered checkpoints');
+        const [first, second] = challenge.checkpoints.map(tile => submission.indexOf(tile));
+        assert(first >= 0 && first < second && submission.indexOf(challenge.goal) === submission.length - 1,
+          'the shortest route reaches both stops before the first entry to the finish');
         assert(evaluateBusiness(challenge, submission).visited === 2, 'both route checkpoints are required');
       }
       if (challenge.kind === 'thief') {
