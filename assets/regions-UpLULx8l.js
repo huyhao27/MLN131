@@ -121,17 +121,17 @@ import{h as e,t}from"./util-C-XnCQOZ.js";import{n}from"./challenges-Cfmq9ISr.js"
       ${n.wait?.preview&&!i?`<p class="rg-wait">${m(`wait`)}<span><b>Chờ:</b> ${t(n.wait.preview)}</span></p>`:``}
     </div>`}function q(e){let n=e.paragraphs??[];return`
     <div class="rg-brief" role="dialog" aria-modal="false" aria-labelledby="rg-brief-title">
-      <p class="rg-eyebrow">Hòa Minh · chế độ quản lý vùng</p>
-      <h1 id="rg-brief-title" class="rg-brief-title">${t(e.title??`Điều hành đất nước qua bản đồ vùng`)}</h1>
+      <p class="rg-eyebrow">The Transition · Bàn giao nhiệm kỳ</p>
+      <h1 id="rg-brief-title" class="rg-brief-title">${t(e.title??`Chào mừng, Thủ tướng!`)}</h1>
       ${n.map(e=>`<p>${t(e)}</p>`).join(``)}
-      <ol class="rg-steps" aria-label="Vòng chơi">
-        <li>${m(`attention`)}<span>Nhìn bản đồ: nơi nào đang cần quan tâm</span></li>
-        <li>${m(`NN`)}<span>Chọn vùng (bấm hoặc phím 1–6)</span></li>
-        <li>${m(`budget`)}<span>Chọn cách xử lý trong ngân sách (A/B/C)</span></li>
-        <li>${m(`next`)}<span>Sang kỳ tiếp theo (N) và xem vùng thay đổi</span></li>
+      <ol class="rg-steps" aria-label="Công việc của Thủ tướng mỗi kỳ">
+        <li>${m(`attention`)}<span><b>Đọc báo cáo.</b> Xem vùng nào đang cần hỗ trợ hoặc có cơ hội.</span></li>
+        <li>${m(`NN`)}<span><b>Chọn ưu tiên.</b> Bấm vào vùng hoặc dùng phím 1–6 để xem việc.</span></li>
+        <li>${m(`budget`)}<span><b>Duyệt phương án.</b> Cân chi phí và thời gian, rồi chọn A/B/C.</span></li>
+        <li>${m(`next`)}<span><b>Sang kỳ.</b> Bấm N để xem việc nào đã xong và vùng nào chịu tác động.</span></li>
       </ol>
       <div class="rg-brief-actions">
-        <button type="button" class="rg-btn is-primary is-big" data-action="start">Bắt đầu điều hành <kbd>Enter</kbd></button>
+        <button type="button" class="rg-btn is-primary is-big" data-action="start">Bắt đầu nhiệm kỳ <kbd>Enter</kbd></button>
       </div>
     </div>`}function J(e,t){return`<span class="rg-mini">${u.map(({key:n,label:r})=>{let i=Math.round(e?.[n]??0),a=Math.round(t?.[n]??0),o=a-i;return`<span class="rg-mini-row" title="${r}: ${i} → ${a}">
       <span class="rg-mini-label">${r}</span>
