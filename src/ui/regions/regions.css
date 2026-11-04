@@ -558,7 +558,7 @@
 .rg-challenge p { margin: 10px 0; }
 .rg-game-kicker { color: #58512f; font-weight: 700; }
 .rg-game-board { display: grid; gap: 6px; margin-top: 14px; }
-.rg-game-board.is-route { grid-template-columns: repeat(7, minmax(0, 1fr)); max-width: 350px; margin-inline: auto; }
+.rg-game-board.is-route { grid-template-columns: repeat(13, minmax(0, 1fr)); max-width: 480px; margin-inline: auto; }
 .rg-game-tile {
   min-height: 42px; padding: 4px;
   border: 1px solid #aa9c77; border-radius: 8px;
@@ -581,7 +581,9 @@
 .rg-business span { font-size: .82em; }
 .rg-business:disabled { opacity: .72; cursor: default; }
 .rg-game-board.is-route { gap: 3px; }
-.rg-game-board.is-route .rg-game-tile { padding: 0; min-height: 32px; aspect-ratio: 1; }
+.rg-game-board.is-route .rg-game-tile { padding: 0; min-height: 0; min-width: 0; font-size: clamp(.75rem, 2.8vw, 1rem); aspect-ratio: 1; }
+.rg-game-tile.is-checkpoint { background: #f5cf73; color: #433000; font-weight: 800; }
+.rg-case-clues { padding-inline-start: 1.3em; }
 .rg-game-tile.is-wall:disabled { background: #726754; border-color: #726754; }
 .rg-game-board.is-thief { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rg-game-tile.rg-suspect { padding: 5px; display: grid; gap: 3px; font-size: .83rem; }

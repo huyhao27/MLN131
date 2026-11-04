@@ -7,8 +7,8 @@ export const BUSINESS_TITLES = {
 };
 
 const GUIDES = {
-  thief: 'Chọn người có mặt đúng nơi và đúng giờ theo bằng chứng. Bạn chỉ được chọn một lần.',
-  route: 'Đưa xe đến cờ đích. Quay đầu cũng tốn bước.',
+  thief: 'Đối chiếu cả năm dấu vết với hồ sơ của 12 nghi phạm. Mỗi dấu vết chấp nhận một trong hai giá trị. Bạn chỉ được chốt một người.',
+  route: 'Ghé trạm 1 rồi trạm 2 trước khi tới cờ đích. Số bước vừa đủ cho đường ngắn nhất. Quay đầu vẫn tốn bước.',
   cake: 'Chọn hai điểm trên viền để vạch một đường cắt. Bạn cũng có thể chỉnh hai đầu cắt bằng bàn phím. Phần nhỏ hơn phải đạt ít nhất 45%.',
 };
 
@@ -49,10 +49,11 @@ function tileButtons(challenge, moves) {
   const state = evaluateBusiness(challenge, moves);
   return Array.from({ length: challenge.size ** 2 }, (_, i) => {
     const blocked = challenge.blocked.includes(i);
-    const glyph = state.tile === i ? '🚚' : blocked ? '' : i === challenge.goal ? '🏁' : '·';
+    const checkpoint = challenge.checkpoints.indexOf(i);
+    const glyph = state.tile === i ? '🚚' : blocked ? '' : i === challenge.goal ? '🏁' : checkpoint >= 0 ? (checkpoint < state.visited ? '✓' : checkpoint + 1) : '·';
     const enabled = !blocked && evaluateBusiness(challenge, [...moves, i]);
-    const label = `Hàng ${Math.floor(i / challenge.size) + 1}, cột ${i % challenge.size + 1}${blocked ? ', có rào' : i === challenge.goal ? ', đích' : ''}`;
-    return `<button type="button" class="rg-game-tile${blocked ? ' is-wall' : ''}" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
+    const label = `Hàng ${Math.floor(i / challenge.size) + 1}, cột ${i % challenge.size + 1}${blocked ? ', có rào' : i === challenge.goal ? ', đích' : checkpoint >= 0 ? ', trạm ' + (checkpoint + 1) : ''}`;
+    return `<button type="button" class="rg-game-tile${blocked ? ' is-wall' : checkpoint >= 0 ? ' is-checkpoint' : ''}" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
   }).join('');
 }
 
@@ -70,6 +71,7 @@ export function openChallenge(root, challenge, finish) {
   const angles = [33, 252];
   let endpoint = 0;
   let submitted = false;
+  let suspect;
 
   function submit(value) {
     if (submitted) return;
@@ -80,7 +82,8 @@ export function openChallenge(root, challenge, finish) {
 
   function renderRoute() {
     dialog.querySelector('.rg-game-board').innerHTML = tileButtons(challenge, moves);
-    dialog.querySelector('.rg-game-status').textContent = `Còn ${challenge.limit - moves.length} bước`;
+    const { visited } = evaluateBusiness(challenge, moves);
+    dialog.querySelector('.rg-game-status').textContent = `Còn ${challenge.limit - moves.length} bước · Đã ghé ${visited}/2 trạm`;
   }
 
   function renderCut() {
@@ -94,10 +97,12 @@ export function openChallenge(root, challenge, finish) {
   }
 
   const boards = {
-    thief: () => `<p><b>Bằng chứng:</b> ${challenge.location} · ${challenge.time}</p>
+    thief: () => `<ul class="rg-case-clues">${challenge.clues.map(({ label, allowed }) =>
+        `<li><b>${label}</b> · ${allowed.join(' hoặc ')}</li>`).join('')}</ul>
       <div class="rg-game-board is-thief">${challenge.suspects.map(s =>
-        `<button type="button" class="rg-game-tile rg-suspect" data-move="${s.id}">${portrait(s.portrait)}
-        <b>Nghi phạm ${s.id + 1}</b><span>${s.location} · ${s.time}</span></button>`).join('')}</div>`,
+        `<button type="button" class="rg-game-tile rg-suspect" data-move="${s.id}" aria-pressed="false">${portrait(s.portrait)}
+        <b>Nghi phạm ${s.id + 1}</b>${s.evidence.map((value, i) =>
+          `<span><span class="rg-sr">${challenge.clues[i].label} </span>${value}</span>`).join('')}</button>`).join('')}</div>`,
     route: () => '<div class="rg-game-board is-route"></div><p class="rg-game-status" aria-live="polite"></p>',
     cake: () => `<svg class="rg-cake" viewBox="0 0 200 200" aria-hidden="true">
       <circle cx="100" cy="100" r="84" fill="#c6844f"/>
@@ -114,6 +119,7 @@ export function openChallenge(root, challenge, finish) {
     ${boards[challenge.kind]()}
     <div class="rg-game-actions">
       ${challenge.kind === 'cake' ? '<button type="button" class="rg-btn is-primary" data-game="cut">Chốt đường cắt</button>' : ''}
+      ${challenge.kind === 'thief' ? '<button type="button" class="rg-btn is-primary" data-game="accuse" disabled>Chốt nghi phạm</button>' : ''}
       <button type="button" class="rg-btn" data-game="quit">Bỏ lượt</button>
     </div>`;
 
@@ -138,12 +144,19 @@ export function openChallenge(root, challenge, finish) {
     const button = e.target.closest('button');
     if (!button) return;
     if (button.dataset.game === 'quit') return submit(null);
+    if (button.dataset.game === 'accuse') return submit(suspect);
     if (button.dataset.game === 'cut') return submit(angles.map(cakePoint));
     if (button.dataset.move === undefined) return;
     const i = Number(button.dataset.move);
-    if (challenge.kind === 'thief') return submit(i);
+    if (challenge.kind === 'thief') {
+      suspect = i;
+      dialog.querySelector('[aria-pressed="true"]')?.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-pressed', 'true');
+      dialog.querySelector('[data-game="accuse"]').disabled = false;
+      return;
+    }
     moves.push(i);
-    if (i === challenge.goal || moves.length === challenge.limit) return submit(moves);
+    if (evaluateBusiness(challenge, moves).solved || moves.length === challenge.limit) return submit(moves);
     renderRoute();
     (dialog.querySelector('[data-move]:enabled') || dialog.querySelector('[data-game="quit"]')).focus();
   });

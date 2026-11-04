@@ -1,28 +1,39 @@
 import { makeRng } from '../core/rng.js';
 
 const KINDS = ['thief', 'route', 'cake'];
-const LOCATIONS = ['Kho hàng', 'Bến xe', 'Nhà máy', 'Chợ', 'Bến cảng', 'Hợp tác xã'];
-const TIMES = ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
+const EVIDENCE = [
+  ['Nơi xuất hiện', ['Kho hàng', 'Bến xe', 'Nhà máy', 'Chợ', 'Bến cảng', 'Hợp tác xã']],
+  ['Giờ ghi nhận', ['17:40', '17:50', '18:00', '18:10', '18:20', '18:30']],
+  ['Phương tiện', ['Xe đạp', 'Xe máy', 'Xe tải', 'Xe buýt', 'Đi bộ', 'Xe kéo']],
+  ['Dấu niêm phong', ['Tròn', 'Vuông', 'Tam giác', 'Ngôi sao', 'Bán nguyệt', 'Chữ thập']],
+  ['Vật mang theo', ['Ống đựng bản đồ', 'Hộp dụng cụ', 'Túi vải', 'Thùng gỗ', 'Ba lô', 'Giỏ đan']],
+];
+const SUSPECT_COUNT = 12;
 export const PORTRAIT_COUNT = 6 * 8 * 8 * 5 * 4;
 
 function thief(seed, period, rng) {
   const portraits = makeRng(`${seed}:portraits`);
   const offset = portraits.int(0, PORTRAIT_COUNT - 1);
-  // This stride is coprime with the pool size, so each index gets a different portrait.
-  const first = Math.floor((period - 1) / KINDS.length) * 6;
-  const culprit = rng.int(0, 5);
-  const location = rng.int(0, 5);
-  const time = rng.int(0, 5);
-  const suspects = Array.from({ length: 6 }, (_, id) => {
-    const relative = (id - culprit + 6) % 6;
+  const first = Math.floor((period - 1) / KINDS.length) * SUSPECT_COUNT;
+  const clues = EVIDENCE.map(([label, values]) => {
+    const a = rng.int(0, values.length - 1);
+    const b = (a + rng.int(1, values.length - 1)) % values.length;
+    return { label, allowed: [values[a], values[b]].sort(), excluded: values.filter((_, i) => i !== a && i !== b) };
+  });
+  // Exactly one card fits. Each clue has a decoy that passes every other clue.
+  const culprit = rng.int(0, SUSPECT_COUNT - 1);
+  const suspects = Array.from({ length: SUSPECT_COUNT }, (_, id) => {
+    const relative = (id - culprit + SUSPECT_COUNT) % SUSPECT_COUNT;
+    const wrong = (relative - 1) % clues.length;
+    const second = (wrong + rng.int(1, clues.length - 1)) % clues.length;
     return {
       id,
       portrait: (offset + (first + id) * 317) % PORTRAIT_COUNT,
-      location: LOCATIONS[(location + (relative >= 3 ? rng.int(1, 5) : 0)) % 6],
-      time: TIMES[(time + (relative > 0 && relative <= 3 ? rng.int(1, 5) : 0)) % 6],
+      evidence: clues.map(({ allowed, excluded }, i) =>
+        rng.pick(i === wrong || (relative > clues.length && i === second) ? excluded : allowed)),
     };
   });
-  return { kind: 'thief', suspects, location: LOCATIONS[location], time: TIMES[time] };
+  return { kind: 'thief', suspects, clues: clues.map(({ label, allowed }) => ({ label, allowed })) };
 }
 
 function neighbors(tile, size) {
@@ -32,38 +43,62 @@ function neighbors(tile, size) {
     .filter(n => n !== false);
 }
 
+function distances(open, from, size) {
+  const distance = new Map([[from, 0]]);
+  const queue = [from];
+  for (const tile of queue) {
+    for (const next of neighbors(tile, size)) {
+      if (!open.has(next) || distance.has(next)) continue;
+      distance.set(next, distance.get(tile) + 1);
+      queue.push(next);
+    }
+  }
+  return distance;
+}
+
 function route(rng) {
-  const size = 7;
+  const size = 13;
   const start = 0;
   const goal = size * size - 1;
-  // Backtracking over logical cells leaves one route between any two open tiles.
-  // Keep the lower-left corner as a reachable dead end off the goal route.
-  const deadEnd = size * (size - 1);
-  const open = new Set([start, deadEnd, deadEnd + 1]);
+  const open = new Set([start]);
+  // Grow a maze tree from the start, with walls between logical cells.
   const path = [start];
-  let solution;
   while (path.length) {
     const tile = path.at(-1);
-    const next = rng.pick(neighbors(tile, size)
-      .flatMap(mid => {
-        const dest = mid + (mid - tile);
-        return neighbors(mid, size).includes(dest) && !open.has(mid) && !open.has(dest) ? [[mid, dest]] : [];
-      }));
+    const next = rng.pick(neighbors(tile, size).flatMap(mid => {
+      const dest = mid + (mid - tile);
+      return neighbors(mid, size).includes(dest) && !open.has(dest) ? [[mid, dest]] : [];
+    }));
     if (!next) {
-      path.pop();
       path.pop();
       continue;
     }
-    for (const step of next) {
-      open.add(step);
-      path.push(step);
+    open.add(next[0]);
+    open.add(next[1]);
+    path.push(next[1]);
+  }
+  const leaves = [...open].filter(tile =>
+    tile !== start && tile !== goal && neighbors(tile, size).filter(n => open.has(n)).length === 1);
+  // A DFS maze can be a single winding corridor. Internal cells keep both checkpoints available.
+  const stops = leaves.length >= 2 ? leaves : [...open].filter(tile => tile !== start && tile !== goal);
+  const fromStart = distances(open, start, size);
+  const fromGoal = distances(open, goal, size);
+  let checkpoints;
+  let limit = 0;
+  for (const a of stops) {
+    const fromA = distances(open, a, size);
+    for (const b of stops) {
+      if (a === b) continue;
+      const steps = fromStart.get(a) + fromA.get(b) + fromGoal.get(b);
+      if (steps > limit) {
+        checkpoints = [a, b];
+        limit = steps;
+      }
     }
-    if (next[1] === goal) solution = [...path];
   }
   return {
-    kind: 'route', size, start, goal,
+    kind: 'route', size, start, goal, checkpoints, limit,
     blocked: Array.from({ length: size * size }, (_, i) => i).filter(i => !open.has(i)),
-    limit: solution.length + 1,
   };
 }
 
@@ -78,16 +113,18 @@ export function businessChallenge(seed, period) {
 export function evaluateBusiness(challenge, submission) {
   if (challenge.kind === 'thief') {
     const suspect = challenge.suspects.find(s => s.id === submission);
-    return suspect ? { solved: suspect.location === challenge.location && suspect.time === challenge.time } : null;
+    return suspect ? { solved: challenge.clues.every(({ allowed }, i) => allowed.includes(suspect.evidence[i])) } : null;
   }
   if (challenge.kind === 'route') {
     if (!Array.isArray(submission) || submission.length > challenge.limit) return null;
     let tile = challenge.start;
+    let visited = 0;
     for (const next of submission) {
-      if (tile === challenge.goal || !neighbors(tile, challenge.size).includes(next) || challenge.blocked.includes(next)) return null;
+      if ((tile === challenge.goal && visited === challenge.checkpoints.length) || !neighbors(tile, challenge.size).includes(next) || challenge.blocked.includes(next)) return null;
       tile = next;
+      if (tile === challenge.checkpoints[visited]) visited++;
     }
-    return { solved: tile === challenge.goal, tile };
+    return { solved: tile === challenge.goal && visited === challenge.checkpoints.length, tile, visited };
   }
   if (!Array.isArray(submission) || submission.length !== 2 || !submission.every(p =>
     Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && Math.abs(Math.hypot(...p) - 1) < 1e-6)) return null;

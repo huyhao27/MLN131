@@ -198,17 +198,20 @@ function play(name, seed, { trace = false } = {}) {
 function solveBusiness(challenge) {
   if (challenge.kind === 'cake') return [[1, 0], [-1, 0]];
   if (challenge.kind === 'thief') return challenge.suspects.find(p => evaluateBusiness(challenge, p.id)?.solved)?.id;
-  const queue = [[]];
-  const seen = new Set([challenge.start]);
-  for (const path of queue) {
-    for (let tile = 0; tile < challenge.size ** 2; tile++) {
-      if (seen.has(tile)) continue;
-      const next = [...path, tile];
-      const result = evaluateBusiness(challenge, next);
-      if (!result) continue;
-      if (result.solved) return next;
-      seen.add(tile);
-      queue.push(next);
+  const queue = [{ tile: challenge.start, visited: 0, path: [] }];
+  const seen = new Set();
+  for (const { tile, visited, path } of queue) {
+    const size = challenge.size;
+    for (const next of [tile - 1, tile + 1, tile - size, tile + size]) {
+      const distance = Math.abs(tile % size - next % size) + Math.abs(Math.floor(tile / size) - Math.floor(next / size));
+      if (distance !== 1 || next < 0 || next >= size ** 2 || challenge.blocked.includes(next)) continue;
+      const progress = visited + Number(next === challenge.checkpoints[visited]);
+      const key = next + ':' + progress;
+      if (seen.has(key)) continue;
+      const moves = [...path, next];
+      if (next === challenge.goal && progress === challenge.checkpoints.length) return moves;
+      seen.add(key);
+      queue.push({ tile: next, visited: progress, path: moves });
     }
   }
   return null;
@@ -248,7 +251,16 @@ function ruleTests() {
       assert(challenge.kind === ['thief', 'route', 'cake'][(period - 1) % 3], 'fixed rotation');
       const submission = solveBusiness(challenge);
       assert(evaluateBusiness(challenge, submission)?.solved, 'each challenge has a legal solution');
+      if (challenge.kind === 'route') {
+        assert(submission.length === challenge.limit, 'route budget equals the shortest route with ordered checkpoints');
+        assert(evaluateBusiness(challenge, submission).visited === 2, 'both route checkpoints are required');
+      }
       if (challenge.kind === 'thief') {
+        assert(challenge.suspects.length === 12 && challenge.clues.length === 5, 'full deduction board');
+        for (const [i] of challenge.clues.entries()) {
+          assert(challenge.suspects.filter(p => challenge.clues.every(({ allowed }, j) =>
+            i === j || allowed.includes(p.evidence[j]))).length >= 2, 'every clue is needed to eliminate a decoy');
+        }
         const matches = challenge.suspects.filter(p => evaluateBusiness(challenge, p.id)?.solved);
         assert(matches.length === 1, 'exactly one suspect matches the evidence');
         for (const { portrait } of challenge.suspects) {
