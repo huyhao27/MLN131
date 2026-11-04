@@ -4,8 +4,8 @@
 //   npm run sim:regions                 -> all strategies
 //   npm run sim:regions -- --runs 50 --verbose
 import { createRegionGame } from '../src/regions/index.js';
-import { initialState, beginPeriod, endPeriod, choose, openProblem, computeServices, optionChallenge, ROOT_EVENTS, EVENT_BY_ID } from '../src/regions/engine.js';
-import { challengeFor, playChallenge } from '../src/regions/challenges.js';
+import { initialState, beginPeriod, endPeriod, choose, openProblem, computeServices, ROOT_EVENTS, EVENT_BY_ID } from '../src/regions/engine.js';
+import { businessChallenge, evaluateBusiness, PORTRAIT_COUNT } from '../src/regions/challenges.js';
 import { CONFIG, REGION_ORDER } from '../src/regions/data/config.js';
 import { EVENTS } from '../src/regions/data/events.js';
 import { mulberry32 } from '../src/core/rng.js';
@@ -195,6 +195,25 @@ function play(name, seed, { trace = false } = {}) {
 
 // ------------------------------------------------------------------ rule tests (doc 05 §12)
 
+function solveBusiness(challenge) {
+  if (challenge.kind === 'cake') return [[1, 0], [-1, 0]];
+  if (challenge.kind === 'thief') return challenge.suspects.find(p => evaluateBusiness(challenge, p.id)?.solved)?.id;
+  const queue = [[]];
+  const seen = new Set([challenge.start]);
+  for (const path of queue) {
+    for (let tile = 0; tile < challenge.size ** 2; tile++) {
+      if (seen.has(tile)) continue;
+      const next = [...path, tile];
+      const result = evaluateBusiness(challenge, next);
+      if (!result) continue;
+      if (result.solved) return next;
+      seen.add(tile);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
 function ruleTests() {
   assert(ROOT_EVENTS.length >= 3 * 28, 'root catalogue has tripled');
   // Same local breakdown, different decisions: only transferring or ignoring it
@@ -220,36 +239,71 @@ function ruleTests() {
     }
     assert(outcomes.A > outcomes.B && outcomes.A > outcomes.wait, 'linked job lowers food available in the affected region');
   }
-  function solve(challenge, moves = []) {
-    const state = playChallenge(challenge, moves);
-    if (!state) return null;
-    if (state.solved) return moves;
-    if (moves.length === challenge.limit) return null;
-    const size = { route: 16, cargo: 6, switches: 5 }[challenge.kind];
-    for (let i = 0; i < size; i++) {
-      const solution = solve(challenge, [...moves, i]);
-      if (solution) return solution;
-    }
-    return null;
-  }
-  for (const kind of ['route', 'cargo', 'switches']) {
-    for (let seed = 1; seed <= 20; seed++) {
-      assert(solve(challengeFor(seed, 'p1', 'A', kind)), `${kind} has a legal solution (seed ${seed})`);
+  for (let seed = 1; seed <= 100; seed++) {
+    const portraits = new Set();
+    const g = createRegionGame({ seed, emit: false });
+    let v = g.act({ type: 'start' });
+    for (let period = 1; period <= CONFIG.periods; period++) {
+      const { challenge } = v.business;
+      assert(challenge.kind === ['thief', 'route', 'cake'][(period - 1) % 3], 'fixed rotation');
+      const submission = solveBusiness(challenge);
+      assert(evaluateBusiness(challenge, submission)?.solved, 'each challenge has a legal solution');
+      if (challenge.kind === 'thief') {
+        const matches = challenge.suspects.filter(p => evaluateBusiness(challenge, p.id)?.solved);
+        assert(matches.length === 1, 'exactly one suspect matches the evidence');
+        for (const { portrait } of challenge.suspects) {
+          assert(portrait >= 0 && portrait < PORTRAIT_COUNT && !portraits.has(portrait), 'unique campaign portraits');
+          portraits.add(portrait);
+        }
+      }
+      const budget = v.budget;
+      g.act({ type: 'businessStart', period });
+      const interrupted = createRegionGame({ seed, savedState: g.state, emit: false });
+      assert(interrupted.view().business.status === 'lost', 'reload consumes an interrupted attempt');
+      const won = g.act({ type: 'businessFinish', period, submission });
+      assert(won.business.status === 'won' && won.budget === budget + CONFIG.businessReward, 'one capped reward');
+      assert(g.undo().budget === won.budget, 'undo cannot restore a spent attempt');
+      const loaded = createRegionGame({ seed, savedState: g.state, emit: false });
+      for (const replay of [g, loaded]) {
+        try {
+          replay.act({ type: 'businessStart', period });
+          assert(false, 'duplicate start rejected');
+        } catch {}
+        try {
+          replay.act({ type: 'businessFinish', period, submission });
+          assert(false, 'duplicate reward rejected');
+        } catch {}
+        assert(replay.view().budget === won.budget, 'duplicate requests never change the budget');
+      }
+      v = g.act({ type: 'endPeriod' });
     }
   }
   {
-    const budgets = [];
-    for (const mode of ['skip', 'solve', 'invalid']) {
-      const s = initialState(2026);
-      s.period = 2; s.phase = 'period';
-      const p = openProblem(s, EVENT_BY_ID.RV29);
-      const challenge = optionChallenge(s, p, EVENT_BY_ID.RV29.options[0]);
-      const moves = mode === 'solve' ? solve(challenge) : mode === 'invalid' ? [99] : undefined;
-      choose(s, p.instanceId, 'A', moves);
-      budgets.push(s.budget);
-      assert(p.outcome === 'resolved', `optional challenge ${mode} still resolves the decision`);
+    const cake = businessChallenge(1, 3);
+    const cut = d => [[d, -Math.sqrt(1 - d * d)], [d, Math.sqrt(1 - d * d)]];
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 55; i++) {
+      const d = (lo + hi) / 2;
+      if (evaluateBusiness(cake, cut(d)).share > 0.45) lo = d;
+      else hi = d;
     }
-    assert(budgets[1] === budgets[0] + 1 && budgets[2] === budgets[0], 'only a legal solution earns the budget reward');
+    assert(evaluateBusiness(cake, cut(hi)).solved, '45/55 boundary is inclusive');
+    assert(!evaluateBusiness(cake, cut(hi + 0.00001)).solved, 'a cut outside 45/55 earns nothing');
+    assert(evaluateBusiness(cake, [[1, 0], [1, 0]]) === null, 'degenerate cut is invalid');
+  }
+  {
+    const s = initialState(2026);
+    s.period = 2;
+    const p = openProblem(s, EVENT_BY_ID['INV-NN']);
+    const before = s.regions.NN.pot.output;
+    s.budget = 3;
+    try {
+      choose(s, p.instanceId, 'B');
+      assert(false, 'investment requires sufficient funds');
+    } catch {}
+    s.budget += CONFIG.businessReward;
+    choose(s, p.instanceId, 'A');
+    assert(s.budget === 0 && s.regions.NN.pot.output === before + 5, 'business income funds a durable local improvement');
   }
   // Same seed + same decisions -> same story.
   const a = play('manager', 4242).v, b = play('manager', 4242).v;

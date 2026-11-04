@@ -53,7 +53,15 @@ async function bootRegions(params, world) {
   const { createRegionGame } = await import('./regions/index.js');
   const { createRegionUI } = await import('./ui/regions/index.js');
   const seed = Number(params.get('seed')) || 2026;
-  const game = createRegionGame({ seed, bus });
+  const saveKey = 'mln133:regions:v1:' + seed;
+  let savedState;
+  try { savedState = JSON.parse(localStorage.getItem(saveKey)); }
+  catch { /* Storage may be unavailable or contain an invalid save. */ }
+  const game = createRegionGame({ seed, bus, savedState });
+  function save() {
+    try { localStorage.setItem(saveKey, JSON.stringify(game.state)); }
+    catch (err) { console.warn('Không lưu được ván chơi', err); }
+  }
 
   world?.setMode?.('regions');
   world?.bindBus?.(bus);
@@ -77,6 +85,7 @@ async function bootRegions(params, world) {
     onAction: (action) => {
       const before = view;
       const next = game.act(action);
+      save();
       render(next);
       if (action.type === 'endPeriod' || action.type === 'restart') {
         world?.showLinks?.([]);
@@ -90,7 +99,7 @@ async function bootRegions(params, world) {
     onSelect: (id) => select(id),
     onHover: (id) => world?.hoverRegion?.(id),
     onFocusProblem: (p) => world?.showLinks?.(p ? p.links : []),
-    onUndo: () => render(game.undo()),
+    onUndo: () => { const next = game.undo(); save(); render(next); },
   });
 
   // World -> UI: region picking and label anchors.

@@ -128,7 +128,6 @@ function optionHtml(view, p, o, i, locked) {
       <span class="rg-fact is-cost">${icon('budget')}${esc(cost[0])}</span>
       ${cost[1] ? `<span class="rg-fact is-upkeep">${icon('upkeep')}${esc(cost[1])}</span>` : ''}
       <span class="rg-fact">${icon('clock')}${esc(delayText(o))}</span>
-      ${o.challenge ? '<span class="rg-fact is-project">🎮 Thử thách tùy chọn</span>' : ''}
       ${o.project ? `<span class="rg-fact is-project">${icon('project')}Dự án dài hạn · ${esc((view.slots?.used ?? 0))}/${esc(view.slots?.max ?? 2)} chỗ</span>` : ''}
     </span>
     ${o.preview ? `<span class="rg-opt-preview">${esc(o.preview)}</span>` : ''}

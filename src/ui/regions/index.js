@@ -95,7 +95,7 @@ export function createRegionUI(rootEl, {
   }
   function updateSafe() {
     const hudBox = boxOf(topEl.querySelector('.rg-hud'));
-    const nextBox = boxOf(topEl.querySelector('.rg-next'));
+    const nextBox = boxOf(topEl.querySelector('.rg-next-wrap'));
     const topBottom = Math.max(hudBox ? hudBox.y + hudBox.h : 0, nextBox ? nextBox.y + nextBox.h : 0);
     ui.style.setProperty('--top-h', `${Math.round(topBottom || 0)}px`);
     const rects = [hudBox, nextBox, boxOf(topEl.querySelector('.rg-confirm')), boxOf(newsEl.firstElementChild ? newsEl : null), boxOf(keyhintEl)];
@@ -287,15 +287,26 @@ export function createRegionUI(rootEl, {
       if (btn) { btn.classList.remove('is-shake'); void btn.offsetWidth; btn.classList.add('is-shake'); }
       return;
     }
-    const commit = (moves) => {
-      st.choseAt = performance.now();
-      btn?.classList.add('is-picked');
-      if (act({ type: 'choose', problem: p.instanceId, option: o.id, moves }, btn)) {
-        toast(`Đã chọn: ${o.label}${moves ? ' · tiết kiệm 1 ngân sách' : ''}`, 'is-good');
-      }
-    };
-    if (o.challenge) openChallenge(ui, o.challenge, commit);
-    else commit();
+    st.choseAt = performance.now();
+    btn?.classList.add('is-picked');
+    if (act({ type: 'choose', problem: p.instanceId, option: o.id }, btn)) {
+      toast('Đã chọn: ' + o.label, 'is-good');
+    }
+  }
+
+  function playBusiness() {
+    const { business, period } = st.view;
+    if (business?.status !== 'ready' || !act({ type: 'businessStart', period })) return;
+    openChallenge(ui, business.challenge, submission => {
+      if (!act({ type: 'businessFinish', period, submission })) return;
+      const result = st.view.business;
+      if (!result || result.status === 'started') return;
+      const split = result.share == null ? '' :
+        ' · Chia ' + (100 * result.share).toFixed(1) + '% / ' + (100 * (1 - result.share)).toFixed(1) + '%';
+      toast((result.reward ? 'Kinh doanh có lãi · +' + result.reward + ' ngân sách' : 'Hết lượt · không có thu nhập') + split,
+        result.reward ? 'is-good' : 'is-bad');
+      topEl.querySelector('[data-action="next"]')?.focus();
+    });
   }
 
   function nextPeriod(confirmed = false) {
@@ -418,7 +429,8 @@ export function createRegionUI(rootEl, {
     if (el.dataset.opt) { choose(el.dataset.opt); blurIfMouse(el, e); return; }
     const a = el.dataset.action;
     blurIfMouse(el, e);
-    if (a === 'next') nextPeriod(st.confirm);
+    if (a === 'business') playBusiness();
+    else if (a === 'next') nextPeriod(st.confirm);
     else if (a === 'next-confirm') nextPeriod(true);
     else if (a === 'next-cancel') { st.confirm = false; renderTopBar(); }
     else if (a === 'close') select(null);

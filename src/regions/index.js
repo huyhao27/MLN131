@@ -3,11 +3,12 @@
 //   game.view(); game.act({ type: 'choose', problem: 'p3', option: 'A' }); game.act({ type: 'endPeriod' });
 import { bus as coreBus } from '../core/bus.js';
 import { CONFIG, REGION_ORDER, INDICATORS } from './data/config.js';
+import { businessChallenge } from './challenges.js';
 import { BRIEFING } from './data/briefing.js';
 import { REGIONS, BUILT, TOPICS, serviceLabel } from './data/regions.js';
 import { SHORT_TITLES } from './data/events.js';
 import {
-  initialState, beginPeriod, endPeriod, choose, optionStates, optionChallenge, computeServices, params, context,
+  initialState, beginPeriod, endPeriod, choose, optionStates, startBusiness, finishBusiness, computeServices, params, context,
   income, upkeepNow, slotsUsed, national, regionStatus, regionScore, isOpen, EVENT_BY_ID,
 } from './engine.js';
 
@@ -23,8 +24,9 @@ const deadlineText = (p, period) => {
 };
 const delayText = (d) => (!d ? 'Ngay' : d === 1 ? 'Kỳ tới' : `Sau ${d} kỳ`);
 
-export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {}) {
-  let s = initialState(seed);
+export function createRegionGame({ seed = 2026, bus = coreBus, emit = true, savedState } = {}) {
+  let s = savedState?.seed === seed ? clone(savedState) : initialState(seed);
+  if (s.business?.status === 'started') s.business.status = 'lost';
   let snapshots = [];
 
   function problemView(p) {
@@ -59,7 +61,6 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
         preview: o.preview,
         disabled,
         reason,
-        challenge: !disabled ? optionChallenge(s, p, o) : null,
       })),
       wait: def.wait ? { preview: def.wait } : null,
       chosen: p.chosen ? { option: p.chosen.option, label: p.chosen.label, period: p.chosen.period, completesAt: p.chosen.completesAt, completed: !!p.chosen.completed } : null,
@@ -133,6 +134,14 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
       return { ...v, ...clone(BRIEFING), regions: regionsView(), problems: [], projects: [], links: [], news: [] };
     }
     const S = computeServices(s);
+    if (s.phase === 'period') {
+      const current = s.business?.period === s.period ? s.business : null;
+      v.business = {
+        ...(current || { status: 'ready', reward: 0 }),
+        challenge: businessChallenge(s.seed, s.period),
+        prize: CONFIG.businessReward,
+      };
+    }
     v.regions = regionsView();
     v.problems = s.problems.filter(isOpen).map(problemView)
       .sort((a, b) => (a.chosen ? 1 : 0) - (b.chosen ? 1 : 0) || b.severity - a.severity);
@@ -225,7 +234,13 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
         return;
       case 'choose':
         if (s.phase !== 'period') throw new Error('not in a period');
-        choose(s, action.problem, action.option, action.moves);
+        choose(s, action.problem, action.option);
+        return;
+      case 'businessStart':
+      case 'businessFinish':
+        if (s.phase !== 'period' || action.period !== s.period) throw new Error('Lượt kinh doanh đã hết hạn');
+        if (action.type === 'businessStart') startBusiness(s);
+        else finishBusiness(s, action.submission);
         return;
       case 'endPeriod':
         if (s.phase !== 'period') throw new Error('not in a period');
@@ -254,7 +269,8 @@ export function createRegionGame({ seed = 2026, bus = coreBus, emit = true } = {
       const prev = numbers();
       const snap = clone(s);
       step(action);
-      if (action.type !== 'restart') snapshots.push(snap);
+      if (action.type === 'businessStart' || action.type === 'businessFinish') snapshots = [];
+      else if (action.type !== 'restart') snapshots.push(snap);
       publish(prev);
       return view();
     },

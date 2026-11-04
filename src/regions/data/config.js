@@ -7,6 +7,8 @@ export const INDICATORS = ['output', 'wellbeing', 'access'];
 export const CONFIG = {
   periods: 8,
   startBudget: 10,
+  businessReward: 2,
+  investmentChance: 0.85,
   income: { base: 7, pivot: 50, step: 6, min: 3 },
   maxProjects: 2,
   draw: {

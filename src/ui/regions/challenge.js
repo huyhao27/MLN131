@@ -1,83 +1,153 @@
-import { playChallenge } from '../../regions/challenges.js';
+import { evaluateBusiness } from '../../regions/challenges.js';
 
-const guides = {
-  route: ['Luồn xe qua phố', 'Đưa xe đến cờ đích trong 8 bước. Chỉ đi sang ô kề cạnh và tránh rào chắn.'],
-  cargo: ['Chốt chuyến hàng', 'Chọn đúng 3 kiện có tổng cân nặng bằng tải mục tiêu. Bấm lại kiện để bỏ chọn.'],
-  switches: ['Bật đèn cả dãy', 'Bật sáng cả 5 đèn trong 3 lượt. Mỗi nút đảo đèn của nó và hai đèn kế bên.'],
+export const BUSINESS_TITLES = {
+  thief: 'Ai là kẻ trộm?',
+  route: 'Tìm đường đến đích',
+  cake: 'Chia bánh làm đôi',
 };
 
-function routeTiles(challenge, state, moves) {
-  return Array.from({ length: 16 }, (_, i) => {
+const GUIDES = {
+  thief: 'Chọn người có mặt đúng nơi và đúng giờ theo bằng chứng. Bạn chỉ được chọn một lần.',
+  route: 'Đưa xe đến cờ đích. Quay đầu cũng tốn bước.',
+  cake: 'Chọn hai điểm trên viền để vạch một đường cắt. Bạn cũng có thể chỉnh hai đầu cắt bằng bàn phím. Phần nhỏ hơn phải đạt ít nhất 45%.',
+};
+
+function portrait(id) {
+  const skin = ['#f5c7a6', '#dc9875', '#a5664a', '#724735', '#c48054', '#edb58c'][id % 6];
+  const hair = Math.floor(id / 6) % 8;
+  const shirt = ['#296b72', '#973e48', '#7258a1', '#815127', '#326444', '#48587b', '#b45a2f', '#a43d70'][Math.floor(id / 48) % 8];
+  const face = Math.floor(id / 384) % 5;
+  const accessory = Math.floor(id / 1920) % 4;
+  const hairstyles = [
+    'M26 44Q24 10 61 16Q83 22 77 44L67 30Q44 40 29 38Z',
+    'M24 47Q21 14 53 13Q86 13 79 49L69 31L62 41L50 29L37 39Z',
+    'M23 49V34Q24 11 52 11Q79 13 80 35V53L71 49V32H32V49Z',
+    'M26 43Q15 18 36 17Q43 5 53 15Q68 6 74 22Q88 25 77 46L70 34Q52 25 29 39Z',
+    'M24 43Q24 10 56 13Q80 13 80 47Q68 26 52 29Q37 36 24 43Z',
+    'M27 35Q32 20 50 19Q70 19 75 35Q52 26 27 35Z',
+    'M22 45Q23 14 54 12Q83 13 81 42L68 36L65 25L54 38L48 31Z',
+    'M22 43L26 24Q46 7 75 20L82 39L60 28L56 36L41 32Z',
+  ];
+  const extras = [
+    '',
+    '<path d="M30 46h16v10H30zm24 0h16v10H54zM46 50h8" fill="none" stroke="#241e26" stroke-width="2"/>',
+    '<circle cx="25" cy="59" r="4" fill="#f5cd59"/>',
+    '<path d="M40 67q10 17 20 0l-10 4z" fill="#352a2e"/>',
+  ];
+  return `<svg class="rg-portrait" viewBox="0 0 100 100" aria-hidden="true">
+    <rect width="100" height="100" rx="12" fill="#dfd5ba"/>
+    <path d="M10 100Q11 79 40 76H60Q89 79 90 100Z" fill="${shirt}"/>
+    <path d="M43 66h14v15q-7 7-14 0z" fill="${skin}"/>
+    <ellipse cx="50" cy="49" rx="${21 + face}" ry="${25 - face}" fill="${skin}"/>
+    <path d="${hairstyles[hair]}" fill="${hair % 2 ? '#463234' : '#262835'}"/>
+    <path d="M38 49h3m18 0h3M45 62q5 ${2 + face} 10 0" stroke="#392931" stroke-width="2" fill="none" stroke-linecap="round"/>
+    ${extras[accessory]}
+  </svg>`;
+}
+
+function tileButtons(challenge, moves) {
+  const state = evaluateBusiness(challenge, moves);
+  return Array.from({ length: challenge.size ** 2 }, (_, i) => {
     const blocked = challenge.blocked.includes(i);
-    const glyph = state.tile === i ? '🚚' : blocked ? '🚧' : i === 15 ? '🏁' : '·';
-    const enabled = playChallenge(challenge, [...moves, i]);
-    const label = `Hàng ${Math.floor(i / 4) + 1}, cột ${i % 4 + 1}${blocked ? ', có rào' : i === 15 ? ', đích' : ''}`;
-    return `<button type="button" class="rg-game-tile" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
+    const glyph = state.tile === i ? '🚚' : blocked ? '' : i === challenge.goal ? '🏁' : '·';
+    const enabled = !blocked && evaluateBusiness(challenge, [...moves, i]);
+    const label = `Hàng ${Math.floor(i / challenge.size) + 1}, cột ${i % challenge.size + 1}${blocked ? ', có rào' : i === challenge.goal ? ', đích' : ''}`;
+    return `<button type="button" class="rg-game-tile${blocked ? ' is-wall' : ''}" data-move="${i}" aria-label="${label}" ${enabled ? '' : 'disabled'}>${glyph}</button>`;
   }).join('');
 }
 
-export function openChallenge(root, challenge, confirm) {
+function cakePoint(degrees) {
+  const angle = degrees * Math.PI / 180;
+  return [Math.cos(angle), Math.sin(angle)];
+}
+
+export function openChallenge(root, challenge, finish) {
   const dialog = document.createElement('dialog');
   dialog.className = 'rg-challenge';
-  dialog.setAttribute('aria-label', guides[challenge.kind][0]);
+  dialog.setAttribute('aria-label', BUSINESS_TITLES[challenge.kind]);
   root.append(dialog);
-  let moves = [];
+  const moves = [];
+  const angles = [33, 252];
+  let endpoint = 0;
+  let submitted = false;
 
-  function render(focus) {
-    const state = playChallenge(challenge, moves);
-    let tiles, status;
-    if (challenge.kind === 'route') {
-      tiles = routeTiles(challenge, state, moves);
-      status = `Còn ${challenge.limit - moves.length} bước`;
-    } else if (challenge.kind === 'cargo') {
-      tiles = challenge.weights.map((weight, i) => {
-        const picked = moves.includes(i);
-        return `<button type="button" class="rg-game-tile" data-move="${i}" aria-pressed="${picked}" ${moves.length === 3 && !picked ? 'disabled' : ''}>📦 ${weight}</button>`;
-      }).join('');
-      status = `Đã chọn ${moves.length}/3 kiện · ${state.total} / ${challenge.target} kg`;
-    } else {
-      tiles = state.board.map((on, i) => `<button type="button" class="rg-game-tile" data-move="${i}" aria-label="Đèn ${i + 1}, ${on ? 'sáng' : 'tắt'}" aria-pressed="${on}" ${state.solved || moves.length === challenge.limit ? 'disabled' : ''}>${on ? '💡' : '⚫'}</button>`).join('');
-      status = `Còn ${challenge.limit - moves.length} lượt bật`;
-    }
-    const [title, guide] = guides[challenge.kind];
-    dialog.innerHTML = `
-      <div class="rg-game-kicker">🎮 Việc nhanh tại hiện trường</div>
-      <h2>${title}</h2>
-      <p>${guide}</p>
-      <div class="rg-game-board is-${challenge.kind}">${tiles}</div>
-      <p class="rg-game-status" aria-live="polite">${state.solved ? 'Xong rồi! Áp dụng phương án và tiết kiệm 1 ngân sách.' : status}</p>
-      <div class="rg-game-actions">
-        ${state.solved ? '<button type="button" class="rg-btn is-primary" data-game="apply">Áp dụng và nhận thưởng</button>' : ''}
-        <button type="button" class="rg-btn" data-game="reset">Chơi lại</button>
-        <button type="button" class="rg-btn" data-game="skip">Áp dụng luôn</button>
-        <button type="button" class="rg-btn" data-game="cancel">Quay lại</button>
-      </div>`;
-    if (focus) {
-      const next = dialog.querySelector('[data-game="apply"]') || dialog.querySelector(`[data-move="${focus}"]:not(:disabled)`) ||
-        dialog.querySelector('[data-move]:not(:disabled)') || dialog.querySelector('[data-game="reset"]');
-      next.focus();
+  function submit(value) {
+    if (submitted) return;
+    submitted = true;
+    dialog.close();
+    finish(value);
+  }
+
+  function renderRoute() {
+    dialog.querySelector('.rg-game-board').innerHTML = tileButtons(challenge, moves);
+    dialog.querySelector('.rg-game-status').textContent = `Còn ${challenge.limit - moves.length} bước`;
+  }
+
+  function renderCut() {
+    const [a, b] = angles.map(cakePoint);
+    const line = dialog.querySelector('line');
+    for (const [index, [x, y]] of [a, b].entries()) {
+      line.setAttribute('x' + (index + 1), 100 + 84 * x);
+      line.setAttribute('y' + (index + 1), 100 + 84 * y);
+      dialog.querySelectorAll('[data-endpoint]')[index].value = angles[index];
     }
   }
 
-  dialog.addEventListener('click', (e) => {
+  const boards = {
+    thief: () => `<p><b>Bằng chứng:</b> ${challenge.location} · ${challenge.time}</p>
+      <div class="rg-game-board is-thief">${challenge.suspects.map(s =>
+        `<button type="button" class="rg-game-tile rg-suspect" data-move="${s.id}">${portrait(s.portrait)}
+        <b>Nghi phạm ${s.id + 1}</b><span>${s.location} · ${s.time}</span></button>`).join('')}</div>`,
+    route: () => '<div class="rg-game-board is-route"></div><p class="rg-game-status" aria-live="polite"></p>',
+    cake: () => `<svg class="rg-cake" viewBox="0 0 200 200" aria-hidden="true">
+      <circle cx="100" cy="100" r="84" fill="#c6844f"/>
+      <circle cx="100" cy="100" r="78" fill="#f2c58e" stroke="#fff0c8" stroke-width="5" stroke-dasharray="3 8"/>
+      <line stroke="#694338" stroke-width="3" stroke-linecap="round"/>
+      </svg><div class="rg-cake-controls">
+        <label>Đầu cắt 1 <input type="range" min="0" max="359" data-endpoint></label>
+        <label>Đầu cắt 2 <input type="range" min="0" max="359" data-endpoint></label>
+      </div>`,
+  };
+
+  dialog.innerHTML = `<div class="rg-game-kicker">Giả lập kinh doanh · Một lượt</div>
+    <h2>${BUSINESS_TITLES[challenge.kind]}</h2><p>${GUIDES[challenge.kind]}</p>
+    ${boards[challenge.kind]()}
+    <div class="rg-game-actions">
+      ${challenge.kind === 'cake' ? '<button type="button" class="rg-btn is-primary" data-game="cut">Chốt đường cắt</button>' : ''}
+      <button type="button" class="rg-btn" data-game="quit">Bỏ lượt</button>
+    </div>`;
+
+  if (challenge.kind === 'route') renderRoute();
+  if (challenge.kind === 'cake') {
+    renderCut();
+    dialog.querySelectorAll('[data-endpoint]').forEach((input, i) => {
+      input.addEventListener('input', () => { angles[i] = Number(input.value); renderCut(); });
+    });
+    dialog.querySelector('.rg-cake').addEventListener('click', e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      if (Math.hypot(x, y) < rect.width / 8) return;
+      angles[endpoint] = (Math.round(Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+      endpoint = 1 - endpoint;
+      renderCut();
+    });
+  }
+
+  dialog.addEventListener('click', e => {
     const button = e.target.closest('button');
     if (!button) return;
-    if (button.dataset.move !== undefined) {
-      const i = Number(button.dataset.move);
-      const next = challenge.kind === 'cargo' && moves.includes(i) ? moves.filter(n => n !== i) : [...moves, i];
-      if (playChallenge(challenge, next)) { moves = next; render(String(i)); }
-      return;
-    }
-    switch (button.dataset.game) {
-      case 'reset': moves = []; render('0'); break;
-      case 'apply':
-        if (playChallenge(challenge, moves)?.solved) { dialog.close(); confirm(moves); }
-        break;
-      case 'skip': dialog.close(); confirm(); break;
-      case 'cancel': dialog.close(); break;
-    }
+    if (button.dataset.game === 'quit') return submit(null);
+    if (button.dataset.game === 'cut') return submit(angles.map(cakePoint));
+    if (button.dataset.move === undefined) return;
+    const i = Number(button.dataset.move);
+    if (challenge.kind === 'thief') return submit(i);
+    moves.push(i);
+    if (i === challenge.goal || moves.length === challenge.limit) return submit(moves);
+    renderRoute();
+    (dialog.querySelector('[data-move]:enabled') || dialog.querySelector('[data-game="quit"]')).focus();
   });
+  dialog.addEventListener('cancel', e => { e.preventDefault(); submit(null); });
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
-  render();
   dialog.showModal();
 }

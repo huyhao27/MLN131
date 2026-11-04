@@ -85,7 +85,6 @@ for (const [i, [region, to, key, pressure, title, text, fix, linkedTitle, linked
   const spill = `${id}:spill`;
   const demand = needKey.test(key);
   const severity = i % 5 === 0 ? 2 : 1;
-  const game = ['route', 'cargo', 'switches'][i % 3];
   const link = { from: region, to, kind: 'risk', label: linkedTitle };
   const follow = later(1, [spawn(child)]);
   EXPANDED_EVENTS.push({
@@ -94,31 +93,31 @@ for (const [i, [region, to, key, pressure, title, text, fix, linkedTitle, linked
     eligible: (c) => c.period < c.total,
     onOpen: [pressureOp(key, pressure, 2, local)],
     options: [
-      { id: 'A', label: fix, cost: 4 + severity, minigame: game,
+      { id: 'A', label: fix, cost: 4 + severity,
         preview: `Xử lý ngay tại chỗ và tránh việc dồn sang ${regionNames[to]}.`,
         now: [untag(local), delta(region, 'access', 2)] },
-      { id: 'B', label: 'Chuyển tải sang vùng bên', cost: 2, minigame: game,
+      { id: 'B', label: 'Chuyển tải sang vùng bên', cost: 2,
         requires: { if: (c) => c.period < c.total, reason: 'Đã đến kỳ cuối, không thể chuyển việc sang kỳ sau' },
         preview: `Hạ áp lực ở đây ngay. ${regionNames[to]} sẽ có việc mới kỳ tới.`,
         now: [untag(local), follow] },
     ],
-    wait: `Vùng này chịu thiệt và ${regionNames[to]} nhận thêm việc sau hạn chót.`,
-    onExpire: [delta(region, demand ? 'wellbeing' : 'output', -2 * severity), follow],
+    wait: `Vùng này mất ${3 * severity} điểm ${demand ? 'đời sống' : 'sản xuất'} và ${severity} ngân sách. ${regionNames[to]} nhận thêm việc sau hạn chót.`,
+    onExpire: [delta(region, demand ? 'wellbeing' : 'output', -3 * severity), cash(-severity), follow],
   });
   LINKED_EVENTS.push({
     id: child, region: to, family: child, title: linkedTitle, origin: 'consequence', severity, deadline: 1,
     text: `Việc từ ${regionNames[region]} dồn sang đây. Có thể dọn ngay hoặc chịu gián đoạn thêm một kỳ.`,
     affects: [region, to], links: [{ ...link, kind: 'active' }],
-    onOpen: [pressureOp(key, pressure, 2, spill), delta(to, 'access', -severity)],
+    onOpen: [pressureOp(key, pressure, 2, spill), delta(to, 'access', -2 * severity)],
     options: [
-      { id: 'A', label: linkedFix, cost: 3, minigame: game, preview: 'Gỡ áp lực ngay và mở lại luồng phục vụ.',
+      { id: 'A', label: linkedFix, cost: 3, preview: 'Gỡ áp lực ngay và mở lại luồng phục vụ.',
         now: [untag(spill), delta(to, 'access', severity + 1)] },
       { id: 'B', label: 'Chạy tạm một kỳ', cost: 1, delay: 1, preview: 'Rẻ hơn, nhưng tình trạng quá tải kéo dài tới kỳ sau.',
         done: [untag(spill), news('Đội hỗ trợ đã bắt kịp phần việc dồn', 'good')] },
       { id: 'C', label: 'Giảm công suất có kế hoạch', cost: 0, preview: 'Giữ ngân sách, đổi lại sản lượng giảm.',
         now: [untag(spill), delta(to, 'output', -3)] },
     ],
-    wait: 'Kéo dài gián đoạn, mất thêm sản lượng và tiền khắc phục.',
-    onExpire: [delta(to, 'output', -2), cash(-1)],
+    wait: 'Kéo dài gián đoạn, mất 4 sản xuất và 2 ngân sách.',
+    onExpire: [delta(to, 'output', -4), cash(-2)],
   });
 }

@@ -6,12 +6,29 @@ import { CONFIG, BASE_PARAMS, REGION_ORDER, INDICATORS } from './data/config.js'
 import { REGIONS, BUILT, LINKS, TOPICS, serviceLabel } from './data/regions.js';
 import { EVENTS, SHORTAGE_PROBLEMS, DIRECT_CONSEQUENCES, OPENING } from './data/events.js';
 import { EXPANDED_EVENTS, LINKED_EVENTS } from './data/expanded-events.js';
-import { challengeFor, playChallenge } from './challenges.js';
+import { businessChallenge, evaluateBusiness } from './challenges.js';
+import { delta, pot } from './data/ops.js';
 
 export const ROOT_EVENTS = [...EVENTS, ...EXPANDED_EVENTS];
 
+const investments = [
+  ['CN', 'Tổ bảo trì mở lớp tại xưởng', 'output', 'Sản xuất', 4],
+  ['NN', 'Hợp tác xã góp kho mát', 'output', 'Sản xuất', 5],
+  ['TT', 'Bệnh viện mở lịch khám cuối tuần', 'access', 'Tiếp cận dịch vụ', 4],
+  ['DC', 'Khu phố góp công làm sân chơi', 'wellbeing', 'Đời sống', 3],
+  ['VC', 'Đội y tế mang thiết bị lên bản', 'access', 'Tiếp cận dịch vụ', 4],
+  ['CB', 'Tổ bốc xếp góp quỹ an toàn', 'wellbeing', 'Đời sống', 3],
+].map(([region, title, indicator, label, cost]) => ({
+  id: 'INV-' + region, family: 'local-investment', region, title, origin: 'opportunity', deadline: 1,
+  text: 'Đối tác địa phương chỉ giữ đề nghị góp vốn trong kỳ này.',
+  options: [
+    { id: 'A', label: 'Tài trợ toàn phần', cost, preview: label + ' +3 ngay · tiềm năng +5', now: [delta(region, indicator, 3), pot(region, indicator, 5)] },
+    { id: 'B', label: 'Góp vốn quy mô nhỏ', cost: cost - 1, preview: label + ' +1 ngay · tiềm năng +2', now: [delta(region, indicator, 1), pot(region, indicator, 2)] },
+  ],
+}));
+
 export const EVENT_BY_ID = Object.fromEntries(
-  [...ROOT_EVENTS, ...SHORTAGE_PROBLEMS, ...Object.values(DIRECT_CONSEQUENCES), ...LINKED_EVENTS].map((e) => [e.id, e]),
+  [...ROOT_EVENTS, ...SHORTAGE_PROBLEMS, ...Object.values(DIRECT_CONSEQUENCES), ...LINKED_EVENTS, ...investments].map((e) => [e.id, e]),
 );
 const SHORTAGE_BY_KEY = Object.fromEntries(SHORTAGE_PROBLEMS.map((e) => [`${e.service}:${e.region}`, e]));
 
@@ -344,13 +361,23 @@ export function optionStates(s, p) {
   });
 }
 
-export function optionChallenge(s, p, option) {
-  const starter = { RV01: 'switches', RV02: 'cargo', RV03: 'switches', RV04: 'route', RV05: 'cargo', RV15: 'route', RV17: 'cargo' };
-  const kind = option.minigame || (option.id === 'A' ? starter[p.rootId] : null);
-  return challengeFor(s.seed, p.instanceId, option.id, kind);
+export function startBusiness(s) {
+  if (s.business?.period === s.period) throw new Error('Đã dùng lượt kinh doanh kỳ này');
+  s.business = { period: s.period, status: 'started', reward: 0 };
 }
 
-export function choose(s, instanceId, optionId, moves) {
+export function finishBusiness(s, submission) {
+  if (s.business?.period !== s.period || s.business.status !== 'started') {
+    throw new Error('Lượt kinh doanh đã kết thúc');
+  }
+  const result = submission == null ? null : evaluateBusiness(businessChallenge(s.seed, s.period), submission);
+  const reward = result?.solved ? CONFIG.businessReward : 0;
+  s.business = { period: s.period, status: reward ? 'won' : 'lost', reward, share: result?.share };
+  s.budget += reward;
+  pushNews(s, reward ? 'Kinh doanh có lãi · +' + reward + ' ngân sách' : 'Lượt kinh doanh kết thúc · không có thu nhập', reward ? 'good' : 'neutral');
+}
+
+export function choose(s, instanceId, optionId) {
   const p = s.problems.find((x) => x.instanceId === instanceId);
   if (!p || !isOpen(p)) throw new Error(`problem ${instanceId} is not open`);
   const st = optionStates(s, p).find((x) => x.def.id === optionId);
@@ -359,17 +386,14 @@ export function choose(s, instanceId, optionId, moves) {
   const o = st.def;
   const def = EVENT_BY_ID[p.rootId];
   const src = { title: def.title, problem: p.instanceId, depth: p.depth, region: p.region };
-  const bonus = moves !== undefined && playChallenge(optionChallenge(s, p, o), moves)?.solved ? 1 : 0;
-
-  s.budget -= o.cost - bonus;
-  if (bonus) pushNews(s, 'Thử thách hoàn tất · tiết kiệm 1 ngân sách', 'good', { region: p.region, problem: p.instanceId });
+  s.budget -= o.cost;
   if (o.upkeep) s.upkeeps.push({ v: o.upkeep.v, from: s.period, until: s.period + o.upkeep.n - 1, label: o.label });
   const delay = o.delay || 0;
   const maxN = Math.max(0, ...(o.now || []).filter((x) => x.t === 'mod' && !x.tag).map((x) => x.n));
   // Shortage problems close only when the service recovers; others when the option lands.
   p.chosen = { option: o.id, label: o.label, period: s.period, completesAt: s.period + delay, until: s.period + Math.max(delay, maxN - 1), close: o.close || (def.service ? 'when' : 'done') };
   p.status = 'working';
-  s.decisions.push({ period: s.period, region: p.region, problem: p.instanceId, rootId: p.rootId, title: def.title, option: o.id, label: o.label, cost: o.cost - bonus, topic: def.topic });
+  s.decisions.push({ period: s.period, region: p.region, problem: p.instanceId, rootId: p.rootId, title: def.title, option: o.id, label: o.label, cost: o.cost, topic: def.topic });
 
   applyOps(s, o.now, src);
   if (o.project) {
@@ -446,7 +470,7 @@ export function endPeriod(s) {
     const R = s.regions[r];
     const undecided = s.problems.some((p) => isOpen(p) && p.region === r && !p.chosen && p.origin !== 'opportunity');
     if (!shortIn.has(r) && !undecided) {
-      for (const k of INDICATORS) R.pot[k] = Math.min(CONFIG.develop.cap, Math.max(R.pot[k], R.pot[k] + CONFIG.develop[k]));
+      for (const k of INDICATORS) R.pot[k] = Math.max(R.pot[k], Math.min(CONFIG.develop.cap, R.pot[k] + CONFIG.develop[k]));
     }
     for (const k of INDICATORS) {
       if (hit.has(`${r}.${k}`)) continue;
@@ -473,7 +497,7 @@ export function endPeriod(s) {
     } else closeProblem(s, p, 'expired', `"${def.title}" qua hạn, thiệt hại đã ghi nhận`, 'bad');
   }
 
-  s.budget += income(s) - upkeepNow(s);
+  s.budget = Math.max(0, s.budget + income(s) - upkeepNow(s));
   s.timeline.push({ period: s.period, national: national(s) });
 
   if (s.period >= s.total) {
@@ -541,6 +565,16 @@ export function beginPeriod(s) {
     const roots = s.problems.filter((p) => isOpen(p) && p.origin !== 'consequence').length;
     if (created === 0 && roots <= CONFIG.draw.calmOpen) drawRoot(s, 'draw2', CONFIG.draw.secondChance);
   }
+  if (s.period >= 2) drawInvestment(s);
+}
+
+function drawInvestment(s) {
+  const rng = mulberry32(fnv1a(s.seed + ':' + s.period + ':investment'));
+  const pool = investments.filter(e =>
+    !s.problems.some(p => p.rootId === e.id && (p.chosen || isOpen(p))) &&
+    (s.cooldowns[e.family + ':' + e.region] ?? 0) <= s.period &&
+    openInRegion(s, e.region).length < CONFIG.draw.perRegion);
+  if (pool.length && rng() < CONFIG.investmentChance) openProblem(s, pool[Math.floor(rng() * pool.length)]);
 }
 
 function reopen(s, p) {

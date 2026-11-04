@@ -1,4 +1,5 @@
 // Map-first HUD: top bar (period, money, slots, next-period button) and the news strip.
+import { BUSINESS_TITLES } from './challenge.js';
 import { esc } from '../util.js';
 import { icon, chainHtml, regionMeta, signedNum } from './text.js';
 
@@ -25,6 +26,10 @@ export function renderTop(view, { confirmOpen = false, testMode = false } = {}) 
   const warns = pendingWarnings(view);
   const hard = warns.filter((w) => !w.soft).length;
   const last = view.period >= view.totalPeriods;
+  const business = view.business;
+  const businessTitle = business ? BUSINESS_TITLES[business.challenge.kind] : '';
+  const businessLabel = business?.status === 'ready' ? 'Kinh doanh · +' + business.prize + ' nếu thắng' :
+    business?.status === 'won' ? 'Kinh doanh · +' + business.reward : 'Kinh doanh · hết lượt';
   // Two compact pills at the top corners; the strip between them is map (pointer-events: none).
   return `
     <div class="rg-top-row">
@@ -42,6 +47,7 @@ export function renderTop(view, { confirmOpen = false, testMode = false } = {}) 
         ${testMode ? '<span class="rg-badge-test">Thử nghiệm</span>' : ''}
       </div>
       <div class="rg-next-wrap">
+        ${business ? `<button type="button" class="rg-btn rg-business" data-action="business" title="${businessTitle}" ${business.status === 'ready' ? '' : 'disabled'}>${businessLabel}</button>` : ''}
         <button type="button" class="rg-next${hard ? ' has-warn' : ''}" data-action="next" aria-keyshortcuts="N"${hard ? ` title="Còn ${hard} việc gấp chưa xử lý"` : ''}>
           ${hard ? icon('attention') : icon('next')}<span>${last ? 'Kết thúc ván' : 'Sang kỳ tiếp theo'}</span><kbd>N</kbd>
         </button>
